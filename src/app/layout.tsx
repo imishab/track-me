@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { BottomNav } from "@/src/components/layout/BottomNavbar";
+import { BottomNavWrapper } from "@/src/components/layout/BottomNavWrapper";
 import { TabProvider } from "@/src/contexts/tab-context";
 import { ThemeProvider } from "../components/ui/theme-provider";
 
@@ -49,7 +49,7 @@ export default function RootLayout({
               {children}
             </ThemeProvider>
           </div>
-          <BottomNav />
+          <BottomNavWrapper />
         </TabProvider>
       </body>
     </html>

@@ -25,7 +25,7 @@ export default function Today() {
     return (
         <>
             <Header height='h-24'>
-                <div className='flex flex-col w-full'>
+                <div className='flex flex-col w-full mt-5'>
                     <div className='flex items-center justify-between w-full'>
                         <div className="flex flex-col">
                             <p className="text-md font-semibold text-violet-400">Friday</p>
@@ -40,7 +40,7 @@ export default function Today() {
                 </div>
             </Header>
 
-            <div className="flex-1 overflow-y-auto space-y-4 pt-28 pb-24 px-4">
+            <div className="flex-1 overflow-y-auto space-y-4 max-w-md mx-auto pt-28 pb-24 px-4">
                 <HabitCards />
                 <HabitCards />
                 <HabitCards />
@@ -51,7 +51,7 @@ export default function Today() {
             <Drawer open={open} onOpenChange={setOpen}>
                 <DrawerTrigger asChild>
                     <Button
-                        className="fixed bottom-28 right-4 z-40 h-12 rounded-full bg-violet-500 px-6 shadow-lg hover:bg-violet-600"
+                        className="fixed bottom-28 right-4 z-40 h-10 rounded-full text-white bg-violet-500 px-6 shadow-lg hover:bg-violet-600"
                         size="lg"
                     >
                         <Plus className="h-5 w-5" />
@@ -60,16 +60,16 @@ export default function Today() {
                 </DrawerTrigger>
                 <DrawerContent>
                     <DrawerHeader>
-                        <DrawerTitle>New Habit</DrawerTitle>
+                        <DrawerTitle>Create New Habit</DrawerTitle>
                         <DrawerDescription>
                             Add a new habit to track daily.
                         </DrawerDescription>
                     </DrawerHeader>
-                    <ScrollArea className="h-[54vh]">
+                    <ScrollArea className="h-[34vh] w-full">
 
-                    <div className="px-4">
-                        <FieldDemo />
-                    </div>
+                        <div className="px-4">
+                            <FieldDemo />
+                        </div>
                     </ScrollArea>
                     <DrawerFooter className='mb-4 flex justify-between'>
                         <DrawerClose asChild>
