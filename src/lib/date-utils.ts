@@ -16,3 +16,31 @@ export function formatDayAndDate(date: Date = new Date()): { day: string; dateLi
   const dateLine = `${month} ${getOrdinal(dayNum)}`
   return { day, dateLine }
 }
+
+export function getDateKey(d: Date): string {
+  return (
+    d.getFullYear() +
+    '-' +
+    String(d.getMonth() + 1).padStart(2, '0') +
+    '-' +
+    String(d.getDate()).padStart(2, '0')
+  )
+}
+
+/** Returns array of date keys for the last N days (including today). */
+export function getDateRangeForLastDays(days: number): string[] {
+  const keys: string[] = []
+  const now = new Date()
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i)
+    keys.push(getDateKey(d))
+  }
+  return keys
+}
+
+export function formatShortDate(dateKey: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}

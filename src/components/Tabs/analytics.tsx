@@ -1,10 +1,344 @@
-import React from 'react'
-import Header from '../layout/Header'
+"use client"
+
+import React, { useState, useEffect, useCallback, useMemo } from "react"
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts"
+import Header from "../layout/Header"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
+import { Button } from "../ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select"
+import { supabase } from "@/src/lib/supabase/client"
+import type { Habit } from "@/src/lib/types/habit"
+import {
+  getTodayKey,
+  getDateRangeForLastDays,
+  formatShortDate,
+} from "@/src/lib/date-utils"
+import { TrendingUp, Target, CheckCircle2, Flame } from "lucide-react"
+
+type HabitCompletion = {
+  id: string
+  habit_id: string
+  date: string
+  value: number
+  completed: boolean
+}
+
+const RANGE_OPTIONS = [
+  { value: "7", label: "Last 7 days" },
+  { value: "14", label: "Last 14 days" },
+  { value: "30", label: "Last 30 days" },
+]
+
+const CHART_COLORS = ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe"]
 
 export default function Analytics() {
-    return (
-        <Header>
-            <p className="text-lg font-semibold ">Analytics</p>
-        </Header>
-    )
+  const [habits, setHabits] = useState<Habit[]>([])
+  const [completions, setCompletions] = useState<HabitCompletion[]>([])
+  const [loading, setLoading] = useState(true)
+  const [rangeDays, setRangeDays] = useState("7")
+
+  const dateRange = useMemo(
+    () => getDateRangeForLastDays(Number(rangeDays)),
+    [rangeDays]
+  )
+
+  const fetchData = useCallback(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      setHabits([])
+      setCompletions([])
+      setLoading(false)
+      return
+    }
+    const habitsRes = await supabase
+      .from("habits")
+      .select("*")
+      .eq("user_id", user.id)
+    const allHabits = habitsRes.data ?? []
+    setHabits(allHabits.filter((h) => !h.archived))
+
+    const completionsRes = await supabase
+      .from("habit_completions")
+      .select("id, habit_id, date, value, completed")
+      .eq("user_id", user.id)
+      .in("date", dateRange)
+    if (completionsRes.error) {
+      setCompletions([])
+    } else {
+      setCompletions(completionsRes.data ?? [])
+    }
+    setLoading(false)
+  }, [dateRange])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  const todayKey = getTodayKey()
+
+  const stats = useMemo(() => {
+    const totalHabits = habits.length
+    const completedToday = completions.filter(
+      (c) => c.date === todayKey && c.completed
+    ).length
+    const totalCompletedInRange = completions.filter((c) => c.completed).length
+    const totalPossible = totalHabits * dateRange.length
+    const completionRate =
+      totalPossible > 0
+        ? Math.round((totalCompletedInRange / totalPossible) * 100)
+        : 0
+
+    const byDate: Record<string, number> = {}
+    dateRange.forEach((d) => (byDate[d] = 0))
+    completions.forEach((c) => {
+      if (c.completed && byDate[c.date] !== undefined) byDate[c.date]++
+    })
+    const chartData = dateRange.map((date) => ({
+      date: formatShortDate(date),
+      fullDate: date,
+      completed: byDate[date] ?? 0,
+      total: totalHabits,
+      rate: totalHabits ? Math.round(((byDate[date] ?? 0) / totalHabits) * 100) : 0,
+    }))
+
+    const byHabit: Record<string, number> = {}
+    habits.forEach((h) => (byHabit[h.id] = 0))
+    completions.forEach((c) => {
+      if (c.completed) byHabit[c.habit_id] = (byHabit[c.habit_id] ?? 0) + 1
+    })
+    const habitChartData = habits
+      .map((h) => ({
+        name: h.title.length > 12 ? h.title.slice(0, 12) + "…" : h.title,
+        fullName: h.title,
+        count: byHabit[h.id] ?? 0,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10)
+
+    let streak = 0
+    for (let i = dateRange.length - 1; i >= 0; i--) {
+      const d = dateRange[i]
+      const completedThatDay = completions.filter(
+        (c) => c.date === d && c.completed
+      ).length
+      if (totalHabits > 0 && completedThatDay === totalHabits) streak++
+      else break
+    }
+
+    return {
+      totalHabits,
+      completedToday,
+      completionRate,
+      chartData,
+      habitChartData,
+      streak,
+    }
+  }, [habits, completions, dateRange, todayKey])
+
+  return (
+    <>
+      <Header>
+        <p className="text-lg font-semibold">Analytics</p>
+      </Header>
+
+      <div className="pt-20 pb-24 px-4 max-w-md mx-auto space-y-6">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm text-muted-foreground">Date range</p>
+          <Select value={rangeDays} onValueChange={setRangeDays}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {RANGE_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardDescription className="flex items-center gap-1.5 text-xs">
+                    <Target className="h-3.5 w-3.5" />
+                    Total habits
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">{stats.totalHabits}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardDescription className="flex items-center gap-1.5 text-xs">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Completed today
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold text-violet-600">
+                    {stats.completedToday}/{stats.totalHabits}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardDescription className="flex items-center gap-1.5 text-xs">
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    Completion rate
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">{stats.completionRate}%</p>
+                  <p className="text-xs text-muted-foreground">in selected range</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardDescription className="flex items-center gap-1.5 text-xs">
+                    <Flame className="h-3.5 w-3.5 text-orange-500" />
+                    Current streak
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">{stats.streak} day{stats.streak !== 1 ? "s" : ""}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Completions by day</CardTitle>
+                <CardDescription>
+                  Habits completed per day in the selected range
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {stats.chartData.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-8 text-center">
+                    No data yet. Complete habits on the Today tab to see trends.
+                  </p>
+                ) : (
+                  <div className="h-[220px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={stats.chartData}
+                        margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fontSize: 11 }}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          allowDecimals={false}
+                          tick={{ fontSize: 11 }}
+                          tickLine={false}
+                          width={24}
+                        />
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (!active || !payload?.[0]) return null
+                            const d = payload[0].payload
+                            return (
+                              <div className="rounded-md border bg-background px-3 py-2 text-sm shadow">
+                                <p className="font-medium">{d.fullDate}</p>
+                                <p className="text-muted-foreground">
+                                  {d.completed}/{d.total} habits ({d.rate}%)
+                                </p>
+                              </div>
+                            )
+                          }}
+                        />
+                        <Bar dataKey="completed" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Top habits</CardTitle>
+                <CardDescription>
+                  Most completed habits in the selected range
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {stats.habitChartData.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-8 text-center">
+                    No completions yet.
+                  </p>
+                ) : (
+                  <div className="h-[220px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={stats.habitChartData}
+                        layout="vertical"
+                        margin={{ top: 4, right: 8, left: 8, bottom: 4 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={false} />
+                        <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                        <YAxis
+                          type="category"
+                          dataKey="name"
+                          width={80}
+                          tick={{ fontSize: 11 }}
+                          tickLine={false}
+                        />
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (!active || !payload?.[0]) return null
+                            const d = payload[0].payload
+                            return (
+                              <div className="rounded-md border bg-background px-3 py-2 text-sm shadow">
+                                <p className="font-medium">{d.fullName}</p>
+                                <p className="text-muted-foreground">
+                                  Completed {d.count} day{d.count !== 1 ? "s" : ""}
+                                </p>
+                              </div>
+                            )
+                          }}
+                        />
+                        <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={24}>
+                          {stats.habitChartData.map((_, i) => (
+                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
+    </>
+  )
 }

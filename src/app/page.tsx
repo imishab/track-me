@@ -23,15 +23,15 @@ export default function Home() {
         <Today />
       </TabsContent>
 
-      <TabsContent value="habits" className="mt-0 flex-1 p-6">
+      <TabsContent value="habits" className="mt-0 flex-1 px-1 mt-4">
         <Habits />
       </TabsContent>
 
-      <TabsContent value="analytics" className="mt-0 flex-1 p-6">
+      <TabsContent value="analytics" className="mt-0 flex-1 px-1 mt-4">
         <Analytics />
       </TabsContent>
 
-      <TabsContent value="settings" className="mt-0 flex-1 p-6">
+      <TabsContent value="settings" className="mt-0 flex-1 px-1 mt-4">
         <Settings />
       </TabsContent>
     </Tabs>

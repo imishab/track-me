@@ -78,7 +78,7 @@ export default function Today() {
         fetchHabits()
     }, [fetchHabits])
 
-    // Persist completions whenever they change (initial state is from localStorage so we never overwrite with empty)
+    // Persist completions to localStorage
     useEffect(() => {
         try {
             localStorage.setItem(`${STORAGE_KEY_PREFIX}-${dateKey}`, JSON.stringify(dailyCompletions))
@@ -86,6 +86,35 @@ export default function Today() {
             // ignore
         }
     }, [dateKey, dailyCompletions])
+
+    // Sync today's completions to Supabase for analytics (table may not exist yet)
+    useEffect(() => {
+        if (habits.length === 0) return
+        const sync = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) return
+            try {
+                for (const habit of habits) {
+                    const data = dailyCompletions[habit.id]
+                    const value = data?.value ?? 0
+                    const completed = isHabitCompleted(habit, data)
+                    await supabase.from('habit_completions').upsert(
+                        {
+                            user_id: user.id,
+                            habit_id: habit.id,
+                            date: dateKey,
+                            value,
+                            completed,
+                        },
+                        { onConflict: 'habit_id,date' }
+                    )
+                }
+            } catch {
+                // habit_completions table may not exist yet
+            }
+        }
+        sync()
+    }, [dateKey, dailyCompletions, habits])
 
     const completedCount = useMemo(
         () => habits.filter((h) => isHabitCompleted(h, dailyCompletions[h.id])).length,
