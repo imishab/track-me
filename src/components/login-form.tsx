@@ -1,3 +1,7 @@
+"use client"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { cn } from "@/src/lib/utils"
 import { Button } from "@/src/components/ui/button"
 import {
@@ -16,11 +20,46 @@ import {
 } from "@/src/components/ui/field"
 import { Input } from "@/src/components/ui/input"
 import Link from "next/link"
+import { supabase } from "@/src/lib/supabase/client"
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setError(null)
+
+    const form = e.currentTarget
+    const email = (form.elements.namedItem("email") as HTMLInputElement).value.trim()
+    const password = (form.elements.namedItem("password") as HTMLInputElement).value
+
+    if (!email || !password) {
+      setError("Email and password are required.")
+      return
+    }
+
+    setLoading(true)
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    setLoading(false)
+
+    if (signInError) {
+      setError(signInError.message)
+      return
+    }
+
+    router.push("/")
+    router.refresh()
+  }
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
@@ -31,8 +70,13 @@ export function LoginForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form>
+          <form onSubmit={onSubmit}>
             <FieldGroup>
+              {error && (
+                <p className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2">
+                  {error}
+                </p>
+              )}
               <Field>
                 <Button variant="outline" type="button">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -60,9 +104,11 @@ export function LoginForm({
                 <FieldLabel htmlFor="email">Email</FieldLabel>
                 <Input
                   id="email"
+                  name="email"
                   type="email"
                   placeholder="m@example.com"
                   required
+                  disabled={loading}
                 />
               </Field>
               <Field>
@@ -75,10 +121,18 @@ export function LoginForm({
                     Forgot your password?
                   </a>
                 </div>
-                <Input id="password" type="password" required />
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  disabled={loading}
+                />
               </Field>
               <Field>
-                <Button type="submit">Login</Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Signing in…" : "Login"}
+                </Button>
                 <FieldDescription className="text-center">
                   Don&apos;t have an account? <Link href="/signup">Create an account</Link>
                 </FieldDescription>
