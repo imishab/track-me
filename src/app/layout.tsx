@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { BottomNavWrapper } from "@/src/components/layout/BottomNavWrapper";
+import { SplashScreen } from "@/src/components/SplashScreen";
 import { TabProvider } from "@/src/contexts/tab-context";
 import { ThemeProvider } from "../components/ui/theme-provider";
 
@@ -39,17 +40,19 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
       >
         <TabProvider>
-          <div className="pb-24 sm:pb-0">
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              {children}
-            </ThemeProvider>
-          </div>
-          <BottomNavWrapper />
+          <SplashScreen>
+            <div className="pb-24 sm:pb-0">
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                {children}
+              </ThemeProvider>
+            </div>
+            <BottomNavWrapper />
+          </SplashScreen>
         </TabProvider>
       </body>
     </html>
