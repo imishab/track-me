@@ -18,9 +18,7 @@ export default function Header({ content, children, className, height = "h-17" }
         >
             <div className={cn("flex items-center px-6", height)}>
                 {content || children || (
-                    <h1 className="text-xl font-semibold text-black dark:text-white">
-                        TrackMe
-                    </h1>
+                  <></>
                 )}
             </div>
         </header>
