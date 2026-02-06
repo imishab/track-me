@@ -17,16 +17,45 @@ const playSound = (path: string) => {
   }
 }
 
+type DayCompletion = { value: number; checked: boolean }
+
 type HabitCardsProps = {
   habit: Habit
+  value?: number
+  checked?: boolean
+  onCompletionChange?: (data: DayCompletion) => void
 }
 
-export default function HabitCards({ habit }: HabitCardsProps) {
+export default function HabitCards({
+  habit,
+  value: controlledValue,
+  checked: controlledChecked,
+  onCompletionChange,
+}: HabitCardsProps) {
   const target = habit.target_value ?? 8
   const unit = habit.unit ?? (habit.tracking_type === 'duration' ? 'min' : '')
-  const [value, setValue] = useState(0)
-  const [checked, setChecked] = useState(false)
+  const [internalValue, setInternalValue] = useState(0)
+  const [internalChecked, setInternalChecked] = useState(false)
   const [trophyBlink, setTrophyBlink] = useState(false)
+
+  const isControlled = onCompletionChange != null
+  const value = isControlled ? (controlledValue ?? 0) : internalValue
+  const checked = isControlled ? (controlledChecked ?? false) : internalChecked
+
+  const updateCompletion = useCallback(
+    (next: Partial<DayCompletion>) => {
+      if (isControlled && onCompletionChange) {
+        onCompletionChange({
+          value: next.value ?? value,
+          checked: next.checked ?? checked,
+        })
+      } else {
+        if (next.value !== undefined) setInternalValue(next.value)
+        if (next.checked !== undefined) setInternalChecked(next.checked)
+      }
+    },
+    [isControlled, onCompletionChange, value, checked]
+  )
 
   const isCompleted =
     habit.tracking_type === 'checkbox' ? checked : value >= target
@@ -47,32 +76,29 @@ export default function HabitCards({ habit }: HabitCardsProps) {
 
   const handleMinus = useCallback(() => {
     playSound('/sounds/add.mp3')
-    setValue((v) => Math.max(0, v - 1))
-  }, [])
+    const nextValue = Math.max(0, value - 1)
+    updateCompletion({ value: nextValue })
+  }, [value, updateCompletion])
 
   const handlePlus = useCallback(() => {
     const wasBelowTarget = value < target
     playSound('/sounds/minus.mp3')
-    setValue((v) => {
-      const next = habit.tracking_type === 'numeric' ? v + 1 : Math.min(target, v + 1)
-      if (wasBelowTarget && next >= target) {
-        playSound('/sounds/success.mp3')
-        setTrophyBlink(true)
-      }
-      return next
-    })
-  }, [habit.tracking_type, target, value])
+    const nextValue = habit.tracking_type === 'numeric' ? value + 1 : Math.min(target, value + 1)
+    if (wasBelowTarget && nextValue >= target) {
+      playSound('/sounds/success.mp3')
+      setTrophyBlink(true)
+    }
+    updateCompletion({ value: nextValue })
+  }, [habit.tracking_type, target, value, updateCompletion])
 
   const handleCheckbox = useCallback(() => {
-    setChecked((c) => {
-      const next = !c
-      if (next) {
-        playSound('/sounds/success.mp3')
-        setTrophyBlink(true)
-      }
-      return next
-    })
-  }, [])
+    const next = !checked
+    if (next) {
+      playSound('/sounds/success.mp3')
+      setTrophyBlink(true)
+    }
+    updateCompletion({ checked: next })
+  }, [checked, updateCompletion])
 
   return (
     <Card className="relative border-0 bg-[#1A1B26] shadow-none rounded-xl overflow-hidden">

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { Plus } from 'lucide-react'
 import Header from '../layout/Header'
 import { Button } from '../ui/button'
@@ -20,11 +20,38 @@ import { FieldDemo, type NewHabitData } from '../ui/FieldDemo'
 import { ScrollArea } from '../ui/scroll-area'
 import { supabase } from '@/src/lib/supabase/client'
 import type { Habit } from '@/src/lib/types/habit'
+import { getTodayKey, formatDayAndDate } from '@/src/lib/date-utils'
+
+const STORAGE_KEY_PREFIX = 'track-me-daily'
+
+type DayCompletion = { value: number; checked: boolean }
+
+function loadDailyCompletionsFromStorage(): Record<string, DayCompletion> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const key = getTodayKey()
+    const stored = localStorage.getItem(`${STORAGE_KEY_PREFIX}-${key}`)
+    return stored ? JSON.parse(stored) : {}
+  } catch {
+    return {}
+  }
+}
+
+function isHabitCompleted(habit: Habit, data: DayCompletion | undefined): boolean {
+  if (!data) return false
+  if (habit.tracking_type === 'checkbox') return data.checked
+  const target = habit.target_value ?? 8
+  return data.value >= target
+}
 
 export default function Today() {
     const [open, setOpen] = useState(false)
     const [habits, setHabits] = useState<Habit[]>([])
     const [loading, setLoading] = useState(true)
+    const [dailyCompletions, setDailyCompletions] = useState<Record<string, DayCompletion>>(loadDailyCompletionsFromStorage)
+    const [dateKey] = useState(() => getTodayKey())
+
+    const { day, dateLine } = useMemo(() => formatDayAndDate(), [])
 
     const fetchHabits = useCallback(async () => {
         const { data: { user } } = await supabase.auth.getUser()
@@ -50,6 +77,25 @@ export default function Today() {
         fetchHabits()
     }, [fetchHabits])
 
+    // Persist completions whenever they change (initial state is from localStorage so we never overwrite with empty)
+    useEffect(() => {
+        try {
+            localStorage.setItem(`${STORAGE_KEY_PREFIX}-${dateKey}`, JSON.stringify(dailyCompletions))
+        } catch {
+            // ignore
+        }
+    }, [dateKey, dailyCompletions])
+
+    const completedCount = useMemo(
+        () => habits.filter((h) => isHabitCompleted(h, dailyCompletions[h.id])).length,
+        [habits, dailyCompletions]
+    )
+    const progressPercent = habits.length ? Math.round((completedCount / habits.length) * 100) : 0
+
+    const handleCompletionChange = useCallback((habitId: string, data: DayCompletion) => {
+        setDailyCompletions((prev) => ({ ...prev, [habitId]: data }))
+    }, [])
+
     async function handleAddHabit(formData: NewHabitData) {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
@@ -71,15 +117,15 @@ export default function Today() {
                 <div className='flex flex-col w-full mt-5'>
                     <div className='flex items-center justify-between w-full'>
                         <div className="flex flex-col">
-                            <p className="text-md font-semibold text-violet-400">Friday</p>
-                            <p className="text-xl font-bold ">{new Date().toDateString()}</p>
+                            <p className="text-md font-semibold text-violet-400">{day}</p>
+                            <p className="text-xl font-bold">{dateLine}</p>
                         </div>
                         <div className='flex flex-col items-center '>
-                            <h1 className='text-xl font-black text-violet-400'>20%</h1>
-                            <p className='text-xs  text-gray-500'>Completed</p>
+                            <h1 className='text-xl font-black text-violet-400'>{progressPercent}%</h1>
+                            <p className='text-xs text-gray-500'>Completed</p>
                         </div>
                     </div>
-                    <Progress value={53} className='mt-4 mb-5' />
+                    <Progress value={progressPercent} className='mt-4 mb-5' />
                 </div>
             </Header>
 
@@ -89,7 +135,15 @@ export default function Today() {
                 ) : habits.length === 0 ? (
                     <p className="text-muted-foreground text-sm">No habits yet. Tap + New Habit to add one.</p>
                 ) : (
-                    habits.map((habit) => <HabitCards key={habit.id} habit={habit} />)
+                    habits.map((habit) => (
+                        <HabitCards
+                            key={habit.id}
+                            habit={habit}
+                            value={dailyCompletions[habit.id]?.value ?? 0}
+                            checked={dailyCompletions[habit.id]?.checked ?? false}
+                            onCompletionChange={(data) => handleCompletionChange(habit.id, data)}
+                        />
+                    ))
                 )}
             </div>
 
