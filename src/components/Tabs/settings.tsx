@@ -1,6 +1,8 @@
 "use client"
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import type { User as SupabaseUser } from '@supabase/supabase-js'
 import Header from '../layout/Header'
 import { Switch } from '../ui/switch'
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar'
@@ -10,9 +12,16 @@ import { Separator } from '../ui/separator'
 import { Card, CardContent } from '../ui/card'
 import { useTheme } from 'next-themes'
 import { Moon, Share2, LogOut, ChevronRight, User } from 'lucide-react'
+import { supabase } from '@/src/lib/supabase/client'
 
 export default function Settings() {
     const { theme, setTheme } = useTheme()
+    const router = useRouter()
+    const [user, setUser] = useState<SupabaseUser | null>(null)
+
+    useEffect(() => {
+        supabase.auth.getUser().then(({ data: { user: u } }) => setUser(u ?? null))
+    }, [])
 
     const handleShare = async () => {
         if (navigator.share) {
@@ -30,9 +39,10 @@ export default function Settings() {
         }
     }
 
-    const handleLogout = () => {
-        // Implement logout logic here
-        console.log('Logging out...')
+    const handleLogout = async () => {
+        await supabase.auth.signOut()
+        router.push('/login')
+        router.refresh()
     }
 
     return (
@@ -45,14 +55,18 @@ export default function Settings() {
                 {/* Account Section */}
                 <div className="flex items-center gap-4 ">
                     <Avatar className="h-16 w-16 border-2 border-border">
-                        <AvatarImage src="https://github.com/shadcn.png" alt="User" />
+                        <AvatarImage src={user?.user_metadata?.avatar_url} alt="User" />
                         <AvatarFallback>
                             <User className="w-8 h-8 opacity-50" />
                         </AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col">
-                        <p className="text-xl font-bold">Jane Doe</p>
-                        <p className="text-sm text-muted-foreground">jane.doe@example.com</p>
+                    <div className="flex flex-col min-w-0">
+                        <p className="text-xl font-bold truncate">
+                            {user?.user_metadata?.full_name ?? user?.email?.split('@')[0] ?? 'User'}
+                        </p>
+                        <p className="text-sm text-muted-foreground truncate">
+                            {user?.email ?? '—'}
+                        </p>
                     </div>
                 </div>
 

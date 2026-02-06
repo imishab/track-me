@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Plus } from 'lucide-react'
 import Header from '../layout/Header'
 import { Button } from '../ui/button'
@@ -16,11 +16,54 @@ import {
 } from '../ui/drawer'
 import { Progress } from '../ui/progress'
 import HabitCards from '../Today/HabitCards'
-import { FieldDemo } from '../ui/FieldDemo'
+import { FieldDemo, type NewHabitData } from '../ui/FieldDemo'
 import { ScrollArea } from '../ui/scroll-area'
+import { supabase } from '@/src/lib/supabase/client'
+import type { Habit } from '@/src/lib/types/habit'
 
 export default function Today() {
     const [open, setOpen] = useState(false)
+    const [habits, setHabits] = useState<Habit[]>([])
+    const [loading, setLoading] = useState(true)
+
+    const fetchHabits = useCallback(async () => {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+            setHabits([])
+            setLoading(false)
+            return
+        }
+        const { data, error } = await supabase
+            .from('habits')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+        if (error) {
+            setHabits([])
+        } else {
+            setHabits(data ?? [])
+        }
+        setLoading(false)
+    }, [])
+
+    useEffect(() => {
+        fetchHabits()
+    }, [fetchHabits])
+
+    async function handleAddHabit(formData: NewHabitData) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+        const { error } = await supabase.from('habits').insert({
+            user_id: user.id,
+            title: formData.title,
+            tracking_type: formData.tracking_type,
+            ...(formData.target_value != null && { target_value: formData.target_value }),
+            ...(formData.unit != null && formData.unit !== '' && { unit: formData.unit }),
+        })
+        if (error) return
+        setOpen(false)
+        await fetchHabits()
+    }
 
     return (
         <>
@@ -41,11 +84,13 @@ export default function Today() {
             </Header>
 
             <div className="flex-1 overflow-y-auto space-y-4 max-w-md mx-auto pt-28 pb-24 px-4">
-                <HabitCards />
-                <HabitCards />
-                <HabitCards />
-                <HabitCards />
-                <HabitCards />
+                {loading ? (
+                    <p className="text-muted-foreground text-sm">Loading habits…</p>
+                ) : habits.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">No habits yet. Tap + New Habit to add one.</p>
+                ) : (
+                    habits.map((habit) => <HabitCards key={habit.id} habit={habit} />)
+                )}
             </div>
 
             <Drawer open={open} onOpenChange={setOpen}>
@@ -66,16 +111,15 @@ export default function Today() {
                         </DrawerDescription>
                     </DrawerHeader>
                     <ScrollArea className="h-[34vh] w-full">
-
                         <div className="px-4">
-                            <FieldDemo />
+                            <FieldDemo onSubmit={handleAddHabit} formId="new-habit-form" />
                         </div>
                     </ScrollArea>
                     <DrawerFooter className='mb-4 flex justify-between'>
                         <DrawerClose asChild>
                             <Button variant="outline">Cancel</Button>
                         </DrawerClose>
-                        <Button className="bg-violet-500 text-white hover:bg-violet-600">
+                        <Button type="submit" form="new-habit-form" className="bg-violet-500 text-white hover:bg-violet-600">
                             Add Habit
                         </Button>
                     </DrawerFooter>
