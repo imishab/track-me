@@ -27,8 +27,10 @@ import {
   getTodayKey,
   getDateRangeForLastDays,
   formatShortDate,
+  getWeekStartKey,
 } from "@/src/lib/date-utils"
 import { TrendingUp, Target, CheckCircle2, Flame } from "lucide-react"
+import Loader from "../loader"
 
 type HabitCompletion = {
   id: string
@@ -39,9 +41,10 @@ type HabitCompletion = {
 }
 
 const RANGE_OPTIONS = [
+  { value: "1", label: "Today" },
   { value: "7", label: "Last 7 days" },
-  { value: "14", label: "Last 14 days" },
-  { value: "30", label: "Last 30 days" },
+  { value: "30", label: "Last month" },
+  { value: "365", label: "Last year" },
 ]
 
 const CHART_COLORS = ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe"]
@@ -51,10 +54,11 @@ export default function Analytics() {
   const [completions, setCompletions] = useState<HabitCompletion[]>([])
   const [loading, setLoading] = useState(true)
   const [rangeDays, setRangeDays] = useState("7")
+  const rangeDaysNum = Number(rangeDays)
 
   const dateRange = useMemo(
-    () => getDateRangeForLastDays(Number(rangeDays)),
-    [rangeDays]
+    () => getDateRangeForLastDays(rangeDaysNum),
+    [rangeDaysNum]
   )
 
   const fetchData = useCallback(async () => {
@@ -110,13 +114,37 @@ export default function Analytics() {
     completions.forEach((c) => {
       if (c.completed && byDate[c.date] !== undefined) byDate[c.date]++
     })
-    const chartData = dateRange.map((date) => ({
-      date: formatShortDate(date),
-      fullDate: date,
-      completed: byDate[date] ?? 0,
-      total: totalHabits,
-      rate: totalHabits ? Math.round(((byDate[date] ?? 0) / totalHabits) * 100) : 0,
-    }))
+    let chartData: { date: string; fullDate: string; completed: number; total: number; rate: number }[]
+    if (dateRange.length > 31) {
+      const byWeek: Record<string, { completed: number; total: number }> = {}
+      dateRange.forEach((date) => {
+        const weekKey = getWeekStartKey(date)
+        if (!byWeek[weekKey]) byWeek[weekKey] = { completed: 0, total: 0 }
+        byWeek[weekKey].completed += byDate[date] ?? 0
+        byWeek[weekKey].total += totalHabits
+      })
+      const weekKeys = Object.keys(byWeek).sort()
+      chartData = weekKeys.map((weekKey) => {
+        const w = byWeek[weekKey]
+        const totalCompleted = w.completed
+        const totalPossible = w.total
+        return {
+          date: "Week of " + formatShortDate(weekKey),
+          fullDate: weekKey,
+          completed: totalCompleted,
+          total: totalPossible,
+          rate: totalPossible ? Math.round((totalCompleted / totalPossible) * 100) : 0,
+        }
+      })
+    } else {
+      chartData = dateRange.map((date) => ({
+        date: formatShortDate(date),
+        fullDate: date,
+        completed: byDate[date] ?? 0,
+        total: totalHabits,
+        rate: totalHabits ? Math.round(((byDate[date] ?? 0) / totalHabits) * 100) : 0,
+      }))
+    }
 
     const byHabit: Record<string, number> = {}
     habits.forEach((h) => (byHabit[h.id] = 0))
@@ -162,7 +190,7 @@ export default function Analytics() {
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm text-muted-foreground">Date range</p>
           <Select value={rangeDays} onValueChange={setRangeDays}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[160px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -176,7 +204,7 @@ export default function Analytics() {
         </div>
 
         {loading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <Loader />
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3">

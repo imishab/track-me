@@ -44,3 +44,13 @@ export function formatShortDate(dateKey: string): string {
   const date = new Date(y, m - 1, d)
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
+
+/** Get Monday of the week for this date (ISO week) for grouping. Returns YYYY-MM-DD. */
+export function getWeekStartKey(dateKey: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  const day = date.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  date.setDate(date.getDate() + diff)
+  return getDateKey(date)
+}

@@ -37,6 +37,7 @@ import { ScrollArea } from "../ui/scroll-area"
 import { supabase } from "@/src/lib/supabase/client"
 import type { Habit } from "@/src/lib/types/habit"
 import { cn } from "@/src/lib/utils"
+import Loader from "../loader"
 
 const TRACKING_LABELS: Record<string, string> = {
   checkbox: "Checkbox",
@@ -210,7 +211,7 @@ export default function Habits() {
         </div>
 
         {loading ? (
-          <p className="text-sm text-muted-foreground">Loading habits…</p>
+        <Loader />
         ) : displayHabits.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground text-sm">

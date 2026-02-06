@@ -21,6 +21,7 @@ import { ScrollArea } from '../ui/scroll-area'
 import { supabase } from '@/src/lib/supabase/client'
 import type { Habit } from '@/src/lib/types/habit'
 import { getTodayKey, formatDayAndDate } from '@/src/lib/date-utils'
+import Loader from '../loader'
 
 const STORAGE_KEY_PREFIX = 'track-me-daily'
 
@@ -161,7 +162,7 @@ export default function Today() {
 
             <div className="flex-1 overflow-y-auto space-y-4 max-w-md mx-auto pt-28 pb-24 px-4">
                 {loading ? (
-                    <p className="text-muted-foreground text-sm">Loading habits…</p>
+                    <Loader />
                 ) : habits.length === 0 ? (
                     <p className="text-muted-foreground text-sm">No habits yet. Tap + New Habit to add one.</p>
                 ) : (
