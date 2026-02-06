@@ -1,32 +1,31 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { CalendarDays, Activity, ChartNoAxesColumn, Settings } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/src/lib/utils";
+import { useTab } from "@/src/contexts/tab-context";
 
 const NAV_ITEMS = [
-    { id: "today", label: "Today", icon: CalendarDays, path: "/" },
-    { id: "habits", label: "Habits", icon: Activity, path: "/habits" },
-    { id: "analytics", label: "Analytics", icon: ChartNoAxesColumn, path: "/analytics" },
-    { id: "settings", label: "Settings", icon: Settings, path: "/settings" },
-];
+    { id: "today", label: "Today", icon: CalendarDays },
+    { id: "habits", label: "Habits", icon: Activity },
+    { id: "analytics", label: "Analytics", icon: ChartNoAxesColumn },
+    { id: "settings", label: "Settings", icon: Settings },
+] as const;
 
 export function BottomNav() {
-    const pathname = usePathname();
+    const { activeTab, setActiveTab } = useTab();
 
     return (
         <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center  sm:hidden">
             <nav className="relative flex h-22 pb-5 w-full max-w-md items-center justify-around border border-t-gray-50 bg-gray-50 px-2 shadow-none ">
                 {NAV_ITEMS.map((item) => {
-                    const isActive = pathname === item.path;
+                    const isActive = activeTab === item.id;
                     const Icon = item.icon;
 
                     return (
-                        <Link
+                        <button
                             key={item.id}
-                            href={item.path}
+                            onClick={() => setActiveTab(item.id)}
                             className="relative flex h-full flex-1  flex-col items-center justify-center gap-1 transition-colors"
                         >
                             {isActive && (
@@ -52,7 +51,7 @@ export function BottomNav() {
                             >
                                 {item.label}
                             </span>
-                        </Link>
+                        </button>
                     );
                 })}
             </nav>
