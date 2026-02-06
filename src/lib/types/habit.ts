@@ -7,6 +7,7 @@ export type Habit = {
   tracking_type: TrackingType
   target_value: number | null
   unit: string | null
+  archived?: boolean
   created_at: string
 }
 

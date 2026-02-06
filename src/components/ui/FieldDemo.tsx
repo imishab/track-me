@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import type { TrackingType } from "@/src/lib/types/habit"
 import {
   Field,
@@ -28,16 +28,28 @@ export type NewHabitData = {
 type FieldDemoProps = {
   onSubmit: (data: NewHabitData) => void
   formId?: string
+  initialValues?: Partial<NewHabitData>
 }
 
 const needsGoalAndUnit = (type: TrackingType | "") =>
   type === "numeric" || type === "duration"
 
-export function FieldDemo({ onSubmit, formId = "new-habit-form" }: FieldDemoProps) {
-  const [title, setTitle] = useState("")
-  const [trackingType, setTrackingType] = useState<TrackingType | "">("")
-  const [dailyGoal, setDailyGoal] = useState("")
-  const [unit, setUnit] = useState("")
+export function FieldDemo({ onSubmit, formId = "new-habit-form", initialValues }: FieldDemoProps) {
+  const [title, setTitle] = useState(initialValues?.title ?? "")
+  const [trackingType, setTrackingType] = useState<TrackingType | "">(initialValues?.tracking_type ?? "")
+  const [dailyGoal, setDailyGoal] = useState(
+    initialValues?.target_value != null ? String(initialValues.target_value) : ""
+  )
+  const [unit, setUnit] = useState(initialValues?.unit ?? "")
+
+  useEffect(() => {
+    if (initialValues) {
+      setTitle(initialValues.title ?? "")
+      setTrackingType(initialValues.tracking_type ?? "")
+      setDailyGoal(initialValues.target_value != null ? String(initialValues.target_value) : "")
+      setUnit(initialValues.unit ?? "")
+    }
+  }, [initialValues?.title, initialValues?.tracking_type, initialValues?.target_value, initialValues?.unit])
 
   const showGoalAndUnit = needsGoalAndUnit(trackingType)
   const defaultUnit = trackingType === "duration" ? "min" : ""

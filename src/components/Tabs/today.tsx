@@ -68,7 +68,8 @@ export default function Today() {
         if (error) {
             setHabits([])
         } else {
-            setHabits(data ?? [])
+            const list = data ?? []
+            setHabits(list.filter((h) => !h.archived))
         }
         setLoading(false)
     }, [])
