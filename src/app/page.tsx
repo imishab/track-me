@@ -11,32 +11,29 @@ export default function Home() {
   const { activeTab, setActiveTab } = useTab();
 
   return (
-    <div className="flex min-h-screen flex-col bg-white dark:bg-black">
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="flex-1">
-        {/* Hidden tab triggers - BottomNav controls this */}
-        <TabsList className="hidden">
-          <TabsTrigger value="today">Today</TabsTrigger>
-          <TabsTrigger value="habits">Habits</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
+    <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="flex-1">
+      <TabsList className="hidden">
+        <TabsTrigger value="today">Today</TabsTrigger>
+        <TabsTrigger value="habits">Habits</TabsTrigger>
+        <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        <TabsTrigger value="settings">Settings</TabsTrigger>
+      </TabsList>
 
-        <TabsContent value="today" className="mt-0 flex-1 p-6">
-          <Today />
-        </TabsContent>
+      <TabsContent value="today" className="mt-0 flex-1 p-6">
+        <Today />
+      </TabsContent>
 
-        <TabsContent value="habits" className="mt-0 flex-1 p-6">
-          <Habits />
-        </TabsContent>
+      <TabsContent value="habits" className="mt-0 flex-1 p-6">
+        <Habits />
+      </TabsContent>
 
-        <TabsContent value="analytics" className="mt-0 flex-1 p-6">
-          <Analytics />
-        </TabsContent>
+      <TabsContent value="analytics" className="mt-0 flex-1 p-6">
+        <Analytics />
+      </TabsContent>
 
-        <TabsContent value="settings" className="mt-0 flex-1 p-6">
-          <Settings />
-        </TabsContent>
-      </Tabs>
-    </div>
+      <TabsContent value="settings" className="mt-0 flex-1 p-6">
+        <Settings />
+      </TabsContent>
+    </Tabs>
   );
 }

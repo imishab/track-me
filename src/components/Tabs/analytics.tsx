@@ -1,7 +1,10 @@
 import React from 'react'
+import Header from '../layout/Header'
 
 export default function Analytics() {
     return (
-        <div>analytics</div>
+        <Header>
+            <p className="text-lg font-semibold ">Analytics</p>
+        </Header>
     )
 }
