@@ -19,7 +19,7 @@ export default function Home() {
         <TabsTrigger value="settings">Settings</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="today" className="mt-0 flex-1 p-4">
+      <TabsContent value="today" className="mt-0 flex-1 px-1 mt-4">
         <Today />
       </TabsContent>
 

@@ -1,12 +1,27 @@
-import React from 'react'
-import { Minus, Plus, Trophy } from 'lucide-react'
+"use client"
+
+import React, { useState } from 'react'
+import { Plus } from 'lucide-react'
 import Header from '../layout/Header'
 import { Button } from '../ui/button'
-import { Card, CardContent } from '../ui/card'
+import {
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerDescription,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerTitle,
+    DrawerTrigger,
+} from '../ui/drawer'
 import { Progress } from '../ui/progress'
 import HabitCards from '../Today/HabitCards'
+import { FieldDemo } from '../ui/FieldDemo'
+import { ScrollArea } from '../ui/scroll-area'
 
 export default function Today() {
+    const [open, setOpen] = useState(false)
+
     return (
         <>
             <Header height='h-24'>
@@ -25,13 +40,47 @@ export default function Today() {
                 </div>
             </Header>
 
-            <div className="flex-1 overflow-y-auto space-y-4 pt-24 pb-24 ">
-               <HabitCards />
-               <HabitCards />
-               <HabitCards />   
-               <HabitCards />
-               <HabitCards />
+            <div className="flex-1 overflow-y-auto space-y-4 pt-28 pb-24 px-4">
+                <HabitCards />
+                <HabitCards />
+                <HabitCards />
+                <HabitCards />
+                <HabitCards />
             </div>
+
+            <Drawer open={open} onOpenChange={setOpen}>
+                <DrawerTrigger asChild>
+                    <Button
+                        className="fixed bottom-28 right-4 z-40 h-12 rounded-full bg-violet-500 px-6 shadow-lg hover:bg-violet-600"
+                        size="lg"
+                    >
+                        <Plus className="h-5 w-5" />
+                        New Habit
+                    </Button>
+                </DrawerTrigger>
+                <DrawerContent>
+                    <DrawerHeader>
+                        <DrawerTitle>New Habit</DrawerTitle>
+                        <DrawerDescription>
+                            Add a new habit to track daily.
+                        </DrawerDescription>
+                    </DrawerHeader>
+                    <ScrollArea className="h-[54vh]">
+
+                    <div className="px-4">
+                        <FieldDemo />
+                    </div>
+                    </ScrollArea>
+                    <DrawerFooter className='mb-4 flex justify-between'>
+                        <DrawerClose asChild>
+                            <Button variant="outline">Cancel</Button>
+                        </DrawerClose>
+                        <Button className="bg-violet-500 text-white hover:bg-violet-600">
+                            Add Habit
+                        </Button>
+                    </DrawerFooter>
+                </DrawerContent>
+            </Drawer>
         </>
     )
 }
