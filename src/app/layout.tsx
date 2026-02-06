@@ -18,7 +18,10 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   themeColor: "#000000",
 
+
 };
+
+import { BottomNav } from "@/src/components/layout/bottom-nav";
 
 export default function RootLayout({
   children,
@@ -30,7 +33,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <div className="pb-24 sm:pb-0">
+          {children}
+        </div>
+        <BottomNav />
       </body>
     </html>
   );
