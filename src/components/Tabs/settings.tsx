@@ -51,7 +51,7 @@ export default function Settings() {
                 <p className="text-lg font-semibold dark:text-white text-black">Settings</p>
             </Header>
 
-            <div className="pt-20 space-y-6 max-w-md mx-auto">
+            <div className="pt-20 pb-24 px-4 max-w-md mx-auto space-y-6">
                 {/* Account Section */}
                 <div className="flex items-center gap-4 ">
                     <Avatar className="h-16 w-16 border-2 border-border">

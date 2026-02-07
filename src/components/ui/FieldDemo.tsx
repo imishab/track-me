@@ -23,24 +23,35 @@ export type NewHabitData = {
   tracking_type: TrackingType
   target_value?: number | null
   unit?: string | null
+  category_id?: string | null
 }
+
+type CategoryOption = { id: string; name: string }
 
 type FieldDemoProps = {
   onSubmit: (data: NewHabitData) => void
   formId?: string
   initialValues?: Partial<NewHabitData>
+  categories?: CategoryOption[]
 }
 
 const needsGoalAndUnit = (type: TrackingType | "") =>
   type === "numeric" || type === "duration"
 
-export function FieldDemo({ onSubmit, formId = "new-habit-form", initialValues }: FieldDemoProps) {
+const NO_CATEGORY_VALUE = "__none__"
+
+export function FieldDemo({ onSubmit, formId = "new-habit-form", initialValues, categories = [] }: FieldDemoProps) {
   const [title, setTitle] = useState(initialValues?.title ?? "")
   const [trackingType, setTrackingType] = useState<TrackingType | "">(initialValues?.tracking_type ?? "")
   const [dailyGoal, setDailyGoal] = useState(
     initialValues?.target_value != null ? String(initialValues.target_value) : ""
   )
   const [unit, setUnit] = useState(initialValues?.unit ?? "")
+  const [categoryId, setCategoryId] = useState<string>(
+    initialValues?.category_id && initialValues.category_id !== NO_CATEGORY_VALUE
+      ? initialValues.category_id
+      : NO_CATEGORY_VALUE
+  )
 
   useEffect(() => {
     if (initialValues) {
@@ -48,8 +59,9 @@ export function FieldDemo({ onSubmit, formId = "new-habit-form", initialValues }
       setTrackingType(initialValues.tracking_type ?? "")
       setDailyGoal(initialValues.target_value != null ? String(initialValues.target_value) : "")
       setUnit(initialValues.unit ?? "")
+      setCategoryId(initialValues.category_id && initialValues.category_id !== NO_CATEGORY_VALUE ? initialValues.category_id : NO_CATEGORY_VALUE)
     }
-  }, [initialValues?.title, initialValues?.tracking_type, initialValues?.target_value, initialValues?.unit])
+  }, [initialValues?.title, initialValues?.tracking_type, initialValues?.target_value, initialValues?.unit, initialValues?.category_id])
 
   const showGoalAndUnit = needsGoalAndUnit(trackingType)
   const defaultUnit = trackingType === "duration" ? "min" : ""
@@ -66,14 +78,20 @@ export function FieldDemo({ onSubmit, formId = "new-habit-form", initialValues }
         tracking_type: type,
         target_value: target,
         unit: (unit || defaultUnit || undefined) || null,
+        category_id: categoryId && categoryId !== NO_CATEGORY_VALUE ? categoryId : null,
       })
     } else {
-      onSubmit({ title: title.trim(), tracking_type: type })
+      onSubmit({
+        title: title.trim(),
+        tracking_type: type,
+        category_id: categoryId && categoryId !== NO_CATEGORY_VALUE ? categoryId : null,
+      })
     }
     setTitle("")
     setTrackingType("")
     setDailyGoal("")
     setUnit("")
+    setCategoryId(NO_CATEGORY_VALUE)
   }
 
   return (
@@ -121,6 +139,30 @@ export function FieldDemo({ onSubmit, formId = "new-habit-form", initialValues }
                   </SelectContent>
                 </Select>
               </Field>
+
+              {categories.length > 0 && (
+                <Field>
+                  <FieldLabel htmlFor="habit-category">
+                    Category
+                  </FieldLabel>
+                  <Select
+                    value={categoryId}
+                    onValueChange={setCategoryId}
+                  >
+                    <SelectTrigger id="habit-category">
+                      <SelectValue placeholder="No category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_CATEGORY_VALUE}>No category</SelectItem>
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
 
               {showGoalAndUnit && (
                 <>

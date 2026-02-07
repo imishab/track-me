@@ -7,6 +7,7 @@ export type Habit = {
   tracking_type: TrackingType
   target_value: number | null
   unit: string | null
+  category_id?: string | null
   archived?: boolean
   created_at: string
 }
@@ -17,4 +18,17 @@ export type HabitInsert = {
   tracking_type: TrackingType
   target_value?: number | null
   unit?: string | null
+  category_id?: string | null
+}
+
+export type Category = {
+  id: string
+  user_id: string
+  name: string
+  created_at: string
+}
+
+export type CategoryInsert = {
+  user_id: string
+  name: string
 }
