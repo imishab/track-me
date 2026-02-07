@@ -230,11 +230,15 @@ export default function Today() {
                         ) : (
                             <>
                                 {selectedCategory && (
-                                    <CategoryRadialChart
-                                        completed={categoryCompletedCount}
-                                        total={filteredHabits.length}
-                                        label={selectedCategory.name}
-                                    />
+                                    <>
+                                    <div className="flex gap-2 items-center justify-left">
+                                        <CategoryRadialChart
+                                            completed={categoryCompletedCount}
+                                            total={filteredHabits.length}
+                                            label={selectedCategory.name} />
+                                           
+                                        </div>
+                                    </>
                                 )}
                                 {filteredHabits.map((habit) => (
                                 <HabitCards
