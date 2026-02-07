@@ -1,6 +1,5 @@
 "use client"
 
-import { TrendingUp } from "lucide-react"
 import {
   Label,
   PolarGrid,
@@ -12,8 +11,6 @@ import {
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "../ui/card"
@@ -22,49 +19,67 @@ import {
   type ChartConfig,
 } from "@/src/components/ui/chart"
 
-export const description = "A radial chart with text"
-
-const chartData = [
-  { browser: "safari", visitors: 200, fill: "var(--color-safari)" },
-]
-
 const chartConfig = {
-  visitors: {
-    label: "Visitors",
-  },
-  safari: {
-    label: "Safari",
-    color: "var(--chart-2)",
+  progress: {
+    label: "Completed",
+    color: "hsl(262, 83%, 58%)",
   },
 } satisfies ChartConfig
 
-export function ChartRadialText() {
+type CategoryRadialChartProps = {
+  /** Number of habits completed (e.g. checked or reached target). */
+  completed: number
+  /** Total habits in the category. */
+  total: number
+  /** Category name (e.g. "Prayer"). */
+  label?: string
+}
+
+export function CategoryRadialChart({
+  completed,
+  total,
+  label = "habits",
+}: CategoryRadialChartProps) {
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0
+  const chartData = [
+    {
+      progress: percent,
+      fill: "var(--color-progress)",
+    },
+  ]
+
   return (
     <Card className="flex flex-col">
       <CardHeader className="items-center pb-0">
-        <CardTitle>Radial Chart - Text</CardTitle>
-        <CardDescription>January - June 2024</CardDescription>
+        <CardTitle className="text-base">
+          {label !== "habits" ? label : "Category"}
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 pb-0">
         <ChartContainer
           config={chartConfig}
-          className="mx-auto aspect-square max-h-[250px]"
+          className="mx-auto aspect-square max-h-[200px]"
         >
           <RadialBarChart
             data={chartData}
-            startAngle={0}
-            endAngle={250}
-            innerRadius={80}
-            outerRadius={110}
+            startAngle={90}
+            endAngle={-270}
+            innerRadius={70}
+            outerRadius={95}
           >
             <PolarGrid
               gridType="circle"
               radialLines={false}
               stroke="none"
               className="first:fill-muted last:fill-background"
-              polarRadius={[86, 74]}
+              polarRadius={[76, 64]}
             />
-            <RadialBar dataKey="visitors" background cornerRadius={10} />
+            <RadialBar
+              dataKey="progress"
+              background
+              cornerRadius={10}
+              max={100}
+            />
             <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
               <Label
                 content={({ viewBox }) => {
@@ -79,16 +94,16 @@ export function ChartRadialText() {
                         <tspan
                           x={viewBox.cx}
                           y={viewBox.cy}
-                          className="fill-foreground text-4xl font-bold"
+                          className="fill-foreground text-3xl font-bold"
                         >
-                          {chartData[0].visitors.toLocaleString()}
+                          {completed}/{total}
                         </tspan>
                         <tspan
                           x={viewBox.cx}
-                          y={(viewBox.cy || 0) + 24}
-                          className="fill-muted-foreground"
+                          y={(viewBox.cy || 0) + 22}
+                          className="fill-muted-foreground text-sm"
                         >
-                          Visitors
+                          {label !== "habits" ? `${label} done` : "completed"}
                         </tspan>
                       </text>
                     )
@@ -99,14 +114,6 @@ export function ChartRadialText() {
           </RadialBarChart>
         </ChartContainer>
       </CardContent>
-      <CardFooter className="flex-col gap-2 text-sm">
-        <div className="flex items-center gap-2 leading-none font-medium">
-          Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
-        </div>
-        <div className="text-muted-foreground leading-none">
-          Showing total visitors for the last 6 months
-        </div>
-      </CardFooter>
     </Card>
   )
 }

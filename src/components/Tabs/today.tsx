@@ -15,6 +15,7 @@ import {
     DrawerTrigger,
 } from '../ui/drawer'
 import { Progress } from '../ui/progress'
+import { CategoryRadialChart } from '../charts/ChartRadial'
 import HabitCards from '../Today/HabitCards'
 import { FieldDemo, type NewHabitData } from '../ui/FieldDemo'
 import { ScrollArea } from '../ui/scroll-area'
@@ -145,6 +146,16 @@ export default function Today() {
         return Math.round((sum / filteredHabits.length) * 100)
     }, [filteredHabits, dailyCompletions])
 
+    const categoryCompletedCount = useMemo(
+        () =>
+            filteredHabits.filter((h) => isHabitCompleted(h, dailyCompletions[h.id])).length,
+        [filteredHabits, dailyCompletions]
+    )
+    const selectedCategory = useMemo(
+        () => (selectedCategoryId ? categories.find((c) => c.id === selectedCategoryId) : null),
+        [selectedCategoryId, categories]
+    )
+
     const handleCompletionChange = useCallback((habitId: string, data: DayCompletion) => {
         setDailyCompletions((prev) => ({ ...prev, [habitId]: data }))
     }, [])
@@ -217,7 +228,15 @@ export default function Today() {
                                 {selectedCategoryId ? 'No habits in this category.' : 'No habits yet.'}
                             </p>
                         ) : (
-                            filteredHabits.map((habit) => (
+                            <>
+                                {selectedCategory && (
+                                    <CategoryRadialChart
+                                        completed={categoryCompletedCount}
+                                        total={filteredHabits.length}
+                                        label={selectedCategory.name}
+                                    />
+                                )}
+                                {filteredHabits.map((habit) => (
                                 <HabitCards
                                     key={habit.id}
                                     habit={habit}
@@ -225,7 +244,8 @@ export default function Today() {
                                     checked={dailyCompletions[habit.id]?.checked ?? false}
                                     onCompletionChange={(data) => handleCompletionChange(habit.id, data)}
                                 />
-                            ))
+                            ))}
+                            </>
                         )}
                     </>
                 )}
