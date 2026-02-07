@@ -45,6 +45,15 @@ function isHabitCompleted(habit: Habit, data: DayCompletion | undefined): boolea
   return data.value >= target
 }
 
+/** Per-habit completion ratio 0–1: checkbox = 0 or 1, numeric/duration = min(1, value/target). */
+function getHabitCompletionRatio(habit: Habit, data: DayCompletion | undefined): number {
+  if (!data) return 0
+  if (habit.tracking_type === 'checkbox') return data.checked ? 1 : 0
+  const target = habit.target_value ?? 8
+  if (target <= 0) return 0
+  return Math.min(1, data.value / target)
+}
+
 export default function Today() {
     const [open, setOpen] = useState(false)
     const [habits, setHabits] = useState<Habit[]>([])
@@ -127,11 +136,14 @@ export default function Today() {
                 : habits.filter((h) => h.category_id === selectedCategoryId),
         [habits, selectedCategoryId]
     )
-    const completedCount = useMemo(
-        () => filteredHabits.filter((h) => isHabitCompleted(h, dailyCompletions[h.id])).length,
-        [filteredHabits, dailyCompletions]
-    )
-    const progressPercent = filteredHabits.length ? Math.round((completedCount / filteredHabits.length) * 100) : 0
+    const progressPercent = useMemo(() => {
+        if (filteredHabits.length === 0) return 0
+        const sum = filteredHabits.reduce(
+            (acc, h) => acc + getHabitCompletionRatio(h, dailyCompletions[h.id]),
+            0
+        )
+        return Math.round((sum / filteredHabits.length) * 100)
+    }, [filteredHabits, dailyCompletions])
 
     const handleCompletionChange = useCallback((habitId: string, data: DayCompletion) => {
         setDailyCompletions((prev) => ({ ...prev, [habitId]: data }))
@@ -163,7 +175,7 @@ export default function Today() {
                         </div>
                         <div className='flex flex-col items-center '>
                             <h1 className='text-xl font-black text-violet-400'>{progressPercent}%</h1>
-                            <p className='text-xs text-gray-500'>Completed</p>
+                            <p className='text-xs text-gray-500'>Progress</p>
                         </div>
                     </div>
                     <Progress value={progressPercent} className='mt-4 mb-5' />

@@ -40,6 +40,14 @@ type HabitCompletion = {
   completed: boolean
 }
 
+/** Per-habit completion ratio 0–1 from a completion record (for analytics). */
+function getCompletionRatio(habit: Habit, c: HabitCompletion): number {
+  if (habit.tracking_type === "checkbox") return c.completed ? 1 : 0
+  const target = habit.target_value ?? 8
+  if (target <= 0) return 0
+  return Math.min(1, c.value / target)
+}
+
 const RANGE_OPTIONS = [
   { value: "1", label: "Today" },
   { value: "7", label: "Last 7 days" },
@@ -99,65 +107,79 @@ export default function Analytics() {
 
   const stats = useMemo(() => {
     const totalHabits = habits.length
-    const completedToday = completions.filter(
-      (c) => c.date === todayKey && c.completed
-    ).length
-    const totalCompletedInRange = completions.filter((c) => c.completed).length
+    const todayCompletions = completions.filter((c) => c.date === todayKey)
+    let todayRatioSum = 0
+    habits.forEach((h) => {
+      const c = todayCompletions.find((x) => x.habit_id === h.id)
+      todayRatioSum += c ? getCompletionRatio(h, c) : 0
+    })
+    const completedTodayPercent =
+      totalHabits > 0 ? Math.round((todayRatioSum / totalHabits) * 100) : 0
+
+    let totalRatioSum = 0
+    dateRange.forEach((date) => {
+      habits.forEach((h) => {
+        const c = completions.find((x) => x.habit_id === h.id && x.date === date)
+        totalRatioSum += c ? getCompletionRatio(h, c) : 0
+      })
+    })
     const totalPossible = totalHabits * dateRange.length
     const completionRate =
-      totalPossible > 0
-        ? Math.round((totalCompletedInRange / totalPossible) * 100)
-        : 0
+      totalPossible > 0 ? Math.round((totalRatioSum / totalPossible) * 100) : 0
 
-    const byDate: Record<string, number> = {}
-    dateRange.forEach((d) => (byDate[d] = 0))
-    completions.forEach((c) => {
-      if (c.completed && byDate[c.date] !== undefined) byDate[c.date]++
+    const byDateRatio: Record<string, number> = {}
+    dateRange.forEach((d) => (byDateRatio[d] = 0))
+    dateRange.forEach((date) => {
+      habits.forEach((h) => {
+        const c = completions.find((x) => x.habit_id === h.id && x.date === date)
+        byDateRatio[date] += c ? getCompletionRatio(h, c) : 0
+      })
     })
-    let chartData: { date: string; fullDate: string; completed: number; total: number; rate: number }[]
+    let chartData: { date: string; fullDate: string; rate: number }[]
     if (dateRange.length > 31) {
-      const byWeek: Record<string, { completed: number; total: number }> = {}
+      const byWeek: Record<string, { sum: number; count: number }> = {}
       dateRange.forEach((date) => {
         const weekKey = getWeekStartKey(date)
-        if (!byWeek[weekKey]) byWeek[weekKey] = { completed: 0, total: 0 }
-        byWeek[weekKey].completed += byDate[date] ?? 0
-        byWeek[weekKey].total += totalHabits
+        if (!byWeek[weekKey]) byWeek[weekKey] = { sum: 0, count: 0 }
+        byWeek[weekKey].sum += byDateRatio[date] ?? 0
+        byWeek[weekKey].count += totalHabits
       })
       const weekKeys = Object.keys(byWeek).sort()
       chartData = weekKeys.map((weekKey) => {
         const w = byWeek[weekKey]
-        const totalCompleted = w.completed
-        const totalPossible = w.total
         return {
           date: "Week of " + formatShortDate(weekKey),
           fullDate: weekKey,
-          completed: totalCompleted,
-          total: totalPossible,
-          rate: totalPossible ? Math.round((totalCompleted / totalPossible) * 100) : 0,
+          rate: w.count ? Math.round((w.sum / w.count) * 100) : 0,
         }
       })
     } else {
       chartData = dateRange.map((date) => ({
         date: formatShortDate(date),
         fullDate: date,
-        completed: byDate[date] ?? 0,
-        total: totalHabits,
-        rate: totalHabits ? Math.round(((byDate[date] ?? 0) / totalHabits) * 100) : 0,
+        rate:
+          totalHabits > 0
+            ? Math.round(((byDateRatio[date] ?? 0) / totalHabits) * 100)
+            : 0,
       }))
     }
 
-    const byHabit: Record<string, number> = {}
-    habits.forEach((h) => (byHabit[h.id] = 0))
-    completions.forEach((c) => {
-      if (c.completed) byHabit[c.habit_id] = (byHabit[c.habit_id] ?? 0) + 1
+    const byHabitRatio: Record<string, number> = {}
+    habits.forEach((h) => (byHabitRatio[h.id] = 0))
+    dateRange.forEach((date) => {
+      habits.forEach((h) => {
+        const c = completions.find((x) => x.habit_id === h.id && x.date === date)
+        byHabitRatio[h.id] += c ? getCompletionRatio(h, c) : 0
+      })
     })
+    const numDays = dateRange.length
     const habitChartData = habits
       .map((h) => ({
         name: h.title.length > 12 ? h.title.slice(0, 12) + "…" : h.title,
         fullName: h.title,
-        count: byHabit[h.id] ?? 0,
+        rate: numDays > 0 ? Math.round(((byHabitRatio[h.id] ?? 0) / numDays) * 100) : 0,
       }))
-      .sort((a, b) => b.count - a.count)
+      .sort((a, b) => b.rate - a.rate)
       .slice(0, 10)
 
     let streak = 0
@@ -172,7 +194,7 @@ export default function Analytics() {
 
     return {
       totalHabits,
-      completedToday,
+      completedTodayPercent,
       completionRate,
       chartData,
       habitChartData,
@@ -223,13 +245,14 @@ export default function Analytics() {
                 <CardHeader className="pb-2">
                   <CardDescription className="flex items-center gap-1.5 text-xs">
                     <CheckCircle2 className="h-3.5 w-3.5" />
-                    Completed today
+                    Progress today
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <p className="text-2xl font-bold text-violet-600">
-                    {stats.completedToday}/{stats.totalHabits}
+                    {stats.completedTodayPercent}%
                   </p>
+                  <p className="text-xs text-muted-foreground">average completion</p>
                 </CardContent>
               </Card>
               <Card>
@@ -259,9 +282,9 @@ export default function Analytics() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Completions by day</CardTitle>
+                <CardTitle className="text-base">Progress by day</CardTitle>
                 <CardDescription>
-                  Habits completed per day in the selected range
+                  Average completion % per day in the selected range
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -284,6 +307,7 @@ export default function Analytics() {
                         />
                         <YAxis
                           allowDecimals={false}
+                          domain={[0, 100]}
                           tick={{ fontSize: 11 }}
                           tickLine={false}
                           width={24}
@@ -296,13 +320,13 @@ export default function Analytics() {
                               <div className="rounded-md border bg-background px-3 py-2 text-sm shadow">
                                 <p className="font-medium">{d.fullDate}</p>
                                 <p className="text-muted-foreground">
-                                  {d.completed}/{d.total} habits ({d.rate}%)
+                                  {d.rate}% avg completion
                                 </p>
                               </div>
                             )
                           }}
                         />
-                        <Bar dataKey="completed" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="rate" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -314,7 +338,7 @@ export default function Analytics() {
               <CardHeader>
                 <CardTitle className="text-base">Top habits</CardTitle>
                 <CardDescription>
-                  Most completed habits in the selected range
+                  Average daily progress % in the selected range
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -331,7 +355,7 @@ export default function Analytics() {
                         margin={{ top: 4, right: 8, left: 8, bottom: 4 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={false} />
-                        <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                        <XAxis type="number" domain={[0, 100]} allowDecimals={false} tick={{ fontSize: 11 }} unit="%" />
                         <YAxis
                           type="category"
                           dataKey="name"
@@ -347,13 +371,13 @@ export default function Analytics() {
                               <div className="rounded-md border bg-background px-3 py-2 text-sm shadow">
                                 <p className="font-medium">{d.fullName}</p>
                                 <p className="text-muted-foreground">
-                                  Completed {d.count} day{d.count !== 1 ? "s" : ""}
+                                  {d.rate}% avg daily progress
                                 </p>
                               </div>
                             )
                           }}
                         />
-                        <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={24}>
+                        <Bar dataKey="rate" radius={[0, 4, 4, 0]} maxBarSize={24}>
                           {stats.habitChartData.map((_, i) => (
                             <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                           ))}
