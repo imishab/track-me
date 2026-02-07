@@ -102,7 +102,7 @@ export default function HabitCards({
 
   return (
     <Card className="relative border-0 bg-[#1A1B26] shadow-none rounded-xl overflow-hidden">
-      <div className="absolute top-0 left-0 right-0 h-1 bg-[#2D2F3B] rounded-t-xl">
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#1A1B26] rounded-t-xl">
         <motion.div
           className="h-full bg-violet-500 rounded-t-xl origin-left"
           initial={false}
