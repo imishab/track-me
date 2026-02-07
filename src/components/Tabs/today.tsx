@@ -23,6 +23,7 @@ import { supabase } from '@/src/lib/supabase/client'
 import type { Habit, Category } from '@/src/lib/types/habit'
 import { getTodayKey, formatDayAndDate } from '@/src/lib/date-utils'
 import Loader from '../loader'
+import Image from 'next/image'
 
 const STORAGE_KEY_PREFIX = 'track-me-daily'
 
@@ -137,14 +138,14 @@ export default function Today() {
                 : habits.filter((h) => h.category_id === selectedCategoryId),
         [habits, selectedCategoryId]
     )
-    const progressPercent = useMemo(() => {
-        if (filteredHabits.length === 0) return 0
-        const sum = filteredHabits.reduce(
+    const globalProgressPercent = useMemo(() => {
+        if (habits.length === 0) return 0
+        const sum = habits.reduce(
             (acc, h) => acc + getHabitCompletionRatio(h, dailyCompletions[h.id]),
             0
         )
-        return Math.round((sum / filteredHabits.length) * 100)
-    }, [filteredHabits, dailyCompletions])
+        return Math.round((sum / habits.length) * 100)
+    }, [habits, dailyCompletions])
 
     const categoryCompletedCount = useMemo(
         () =>
@@ -185,11 +186,11 @@ export default function Today() {
                             <p className="text-xl font-bold">{dateLine}</p>
                         </div>
                         <div className='flex flex-col items-center '>
-                            <h1 className='text-xl font-black text-violet-400'>{progressPercent}%</h1>
+                            <h1 className='text-xl font-black text-violet-400'>{globalProgressPercent}%</h1>
                             <p className='text-xs text-gray-500'>Progress</p>
                         </div>
                     </div>
-                    <Progress value={progressPercent} className='mt-4 mb-5' />
+                    <Progress value={globalProgressPercent} className='mt-4 mb-5' />
                 </div>
             </Header>
 
@@ -197,15 +198,24 @@ export default function Today() {
                 {loading ? (
                     <Loader />
                 ) : habits.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">No habits yet. Tap + New Habit to add one.</p>
+                    <div className="text-muted-foreground text-center mt-16 text-sm flex flex-col items-center justify-center">
+                        <Image
+                            src="/images/icons/not.png"
+                            alt="No habits"
+                            width={150}
+                            height={150}
+                            className="mb-5"
+                        />
+                        <p className="text-muted-foreground text-sm">No habits yet. Tap + New Habit to add one.</p>
+                    </div>
                 ) : (
                     <>
                         {categories.length > 0 && (
-                            <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 scrollbar-none">
+                            <div className="flex gap-2 overflow-x-auto overflow-y-hidden pb-2 -mx-1 scrollbar-none scroll-smooth snap-x snap-mandatory [scrollbar-width:none] [-webkit-overflow-scrolling:touch]">
                                 <Button
                                     variant="outline"
                                     size="lg"
-                                    className={selectedCategoryId === null ? 'bg-violet-500 hover:bg-violet-600 text-white' : ''}
+                                    className={`shrink-0 snap-start ${selectedCategoryId === null ? 'bg-violet-500 hover:bg-violet-600 text-white' : ''}`}
                                     onClick={() => setSelectedCategoryId(null)}
                                 >
                                     All
@@ -215,7 +225,7 @@ export default function Today() {
                                         key={cat.id}
                                         variant="outline"
                                         size="lg"
-                                        className={selectedCategoryId === cat.id ? 'bg-violet-500 hover:bg-violet-600 text-white' : ''}
+                                        className={`shrink-0 snap-start ${selectedCategoryId === cat.id ? 'bg-violet-500 hover:bg-violet-600 text-white' : ''}`}
                                         onClick={() => setSelectedCategoryId(cat.id)}
                                     >
                                         {cat.name}
@@ -224,9 +234,16 @@ export default function Today() {
                             </div>
                         )}
                         {filteredHabits.length === 0 ? (
-                            <p className="text-muted-foreground text-sm">
+                            <div className="text-muted-foreground text-center mt-16 text-sm flex flex-col items-center justify-center">
+                                <Image
+                                    src="/images/icons/not.png"
+                                    alt="No habits"
+                                    width={150}
+                                    height={150}
+                                    className="mb-5"
+                                />
                                 {selectedCategoryId ? 'No habits in this category.' : 'No habits yet.'}
-                            </p>
+                            </div>
                         ) : (
                             <>
                                 {selectedCategory && (
