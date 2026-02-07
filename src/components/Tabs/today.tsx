@@ -19,7 +19,7 @@ import HabitCards from '../Today/HabitCards'
 import { FieldDemo, type NewHabitData } from '../ui/FieldDemo'
 import { ScrollArea } from '../ui/scroll-area'
 import { supabase } from '@/src/lib/supabase/client'
-import type { Habit } from '@/src/lib/types/habit'
+import type { Habit, Category } from '@/src/lib/types/habit'
 import { getTodayKey, formatDayAndDate } from '@/src/lib/date-utils'
 import Loader from '../loader'
 
@@ -48,6 +48,8 @@ function isHabitCompleted(habit: Habit, data: DayCompletion | undefined): boolea
 export default function Today() {
     const [open, setOpen] = useState(false)
     const [habits, setHabits] = useState<Habit[]>([])
+    const [categories, setCategories] = useState<Category[]>([])
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
     const [dailyCompletions, setDailyCompletions] = useState<Record<string, DayCompletion>>(loadDailyCompletionsFromStorage)
     const [dateKey] = useState(() => getTodayKey())
@@ -58,20 +60,21 @@ export default function Today() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
             setHabits([])
+            setCategories([])
             setLoading(false)
             return
         }
-        const { data, error } = await supabase
-            .from('habits')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-        if (error) {
+        const [habitsRes, categoriesRes] = await Promise.all([
+            supabase.from('habits').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+            supabase.from('categories').select('*').eq('user_id', user.id).order('name'),
+        ])
+        if (habitsRes.error) {
             setHabits([])
         } else {
-            const list = data ?? []
+            const list = habitsRes.data ?? []
             setHabits(list.filter((h) => !h.archived))
         }
+        setCategories(categoriesRes.error ? [] : (categoriesRes.data ?? []))
         setLoading(false)
     }, [])
 
@@ -117,11 +120,18 @@ export default function Today() {
         sync()
     }, [dateKey, dailyCompletions, habits])
 
-    const completedCount = useMemo(
-        () => habits.filter((h) => isHabitCompleted(h, dailyCompletions[h.id])).length,
-        [habits, dailyCompletions]
+    const filteredHabits = useMemo(
+        () =>
+            selectedCategoryId == null
+                ? habits
+                : habits.filter((h) => h.category_id === selectedCategoryId),
+        [habits, selectedCategoryId]
     )
-    const progressPercent = habits.length ? Math.round((completedCount / habits.length) * 100) : 0
+    const completedCount = useMemo(
+        () => filteredHabits.filter((h) => isHabitCompleted(h, dailyCompletions[h.id])).length,
+        [filteredHabits, dailyCompletions]
+    )
+    const progressPercent = filteredHabits.length ? Math.round((completedCount / filteredHabits.length) * 100) : 0
 
     const handleCompletionChange = useCallback((habitId: string, data: DayCompletion) => {
         setDailyCompletions((prev) => ({ ...prev, [habitId]: data }))
@@ -166,15 +176,46 @@ export default function Today() {
                 ) : habits.length === 0 ? (
                     <p className="text-muted-foreground text-sm">No habits yet. Tap + New Habit to add one.</p>
                 ) : (
-                    habits.map((habit) => (
-                        <HabitCards
-                            key={habit.id}
-                            habit={habit}
-                            value={dailyCompletions[habit.id]?.value ?? 0}
-                            checked={dailyCompletions[habit.id]?.checked ?? false}
-                            onCompletionChange={(data) => handleCompletionChange(habit.id, data)}
-                        />
-                    ))
+                    <>
+                        {categories.length > 0 && (
+                            <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 scrollbar-none">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className={selectedCategoryId === null ? 'bg-violet-500 hover:bg-violet-600 text-white' : ''}
+                                    onClick={() => setSelectedCategoryId(null)}
+                                >
+                                    All
+                                </Button>
+                                {categories.map((cat) => (
+                                    <Button
+                                        key={cat.id}
+                                        variant="outline"
+                                        size="sm"
+                                        className={selectedCategoryId === cat.id ? 'bg-violet-500 hover:bg-violet-600 text-white' : ''}
+                                        onClick={() => setSelectedCategoryId(cat.id)}
+                                    >
+                                        {cat.name}
+                                    </Button>
+                                ))}
+                            </div>
+                        )}
+                        {filteredHabits.length === 0 ? (
+                            <p className="text-muted-foreground text-sm">
+                                {selectedCategoryId ? 'No habits in this category.' : 'No habits yet.'}
+                            </p>
+                        ) : (
+                            filteredHabits.map((habit) => (
+                                <HabitCards
+                                    key={habit.id}
+                                    habit={habit}
+                                    value={dailyCompletions[habit.id]?.value ?? 0}
+                                    checked={dailyCompletions[habit.id]?.checked ?? false}
+                                    onCompletionChange={(data) => handleCompletionChange(habit.id, data)}
+                                />
+                            ))
+                        )}
+                    </>
                 )}
             </div>
 
