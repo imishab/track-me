@@ -77,7 +77,7 @@ export default function Today() {
         }
         const [habitsRes, categoriesRes] = await Promise.all([
             supabase.from('habits').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-            supabase.from('categories').select('*').eq('user_id', user.id).order('name'),
+            supabase.from('categories').select('*').eq('user_id', user.id).order('created_at', { ascending: true }),
         ])
         if (habitsRes.error) {
             setHabits([])
