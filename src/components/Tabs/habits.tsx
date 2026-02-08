@@ -9,7 +9,25 @@ import {
   ArchiveRestore,
   Trash2,
   FolderPlus,
+  GripVertical,
 } from "lucide-react"
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 import Header from "../layout/Header"
 import { Button } from "../ui/button"
 import { Card, CardContent } from "../ui/card"
@@ -56,6 +74,89 @@ const TRACKING_LABELS: Record<string, string> = {
 
 type ViewMode = "active" | "archived" | "category"
 
+function SortableHabitRow({
+  habit,
+  onEdit,
+  onArchive,
+  onUnarchive,
+  onDelete,
+}: {
+  habit: Habit
+  onEdit: (h: Habit) => void
+  onArchive: (h: Habit) => void
+  onUnarchive: (h: Habit) => void
+  onDelete: (h: Habit) => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: habit.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+  return (
+    <li ref={setNodeRef} style={style} className={cn(isDragging && "opacity-50 z-10")}>
+      <Card className={cn(habit.archived && "opacity-75")}>
+        <CardContent className="py-3 px-4 flex items-center gap-2">
+          <button
+            type="button"
+            className="touch-none cursor-grab active:cursor-grabbing p-1 rounded hover:bg-muted -ml-1"
+            {...attributes}
+            {...listeners}
+            aria-label="Drag to reorder"
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="font-medium truncate">{habit.title}</p>
+            <p className="text-xs text-muted-foreground">
+              {TRACKING_LABELS[habit.tracking_type] ?? habit.tracking_type}
+              {habit.target_value != null && ` · ${habit.target_value} ${habit.unit ?? ""}`}
+            </p>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="shrink-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onEdit(habit)}>
+                <Pencil className="h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+              {habit.archived ? (
+                <DropdownMenuItem onClick={() => onUnarchive(habit)}>
+                  <ArchiveRestore className="h-4 w-4" />
+                  Restore
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={() => onArchive(habit)}>
+                  <Archive className="h-4 w-4" />
+                  Archive
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => onDelete(habit)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </CardContent>
+      </Card>
+    </li>
+  )
+}
+
 export default function Habits() {
   const [habits, setHabits] = useState<Habit[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -84,7 +185,13 @@ export default function Habits() {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
     const list = data ?? []
-    setHabits(list.sort((a, b) => (a.archived ? 1 : 0) - (b.archived ? 1 : 0)))
+    list.sort(
+      (a, b) =>
+        (a.archived ? 1 : 0) - (b.archived ? 1 : 0) ||
+        (a.order_index ?? 999) - (b.order_index ?? 999) ||
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )
+    setHabits(list)
     setLoading(false)
     if (error) setHabits([])
   }, [])
@@ -127,6 +234,10 @@ export default function Habits() {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) return
+    const nextOrder =
+      habits.length > 0
+        ? Math.max(...habits.map((h) => h.order_index ?? 0)) + 1
+        : 0
     const { error } = await supabase.from("habits").insert({
       user_id: user.id,
       title: formData.title,
@@ -134,6 +245,7 @@ export default function Habits() {
       ...(formData.target_value != null && { target_value: formData.target_value }),
       ...(formData.unit != null && formData.unit !== "" && { unit: formData.unit }),
       ...(formData.category_id && { category_id: formData.category_id }),
+      order_index: nextOrder,
     })
     if (error) return
     setHabitDrawerOpen(false)
@@ -238,6 +350,43 @@ export default function Habits() {
 
   const displayHabits =
     viewMode === "active" ? activeHabits : viewMode === "archived" ? archivedHabits : []
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
+
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event
+      if (!over || active.id === over.id) return
+      const list = viewMode === "active" ? activeHabits : archivedHabits
+      const oldIndex = list.findIndex((h) => h.id === active.id)
+      const newIndex = list.findIndex((h) => h.id === over.id)
+      if (oldIndex === -1 || newIndex === -1) return
+      const reordered =
+        viewMode === "active"
+          ? arrayMove(activeHabits, oldIndex, newIndex)
+          : arrayMove(archivedHabits, oldIndex, newIndex)
+      const other =
+        viewMode === "active" ? archivedHabits : activeHabits
+      const withNewOrder: Habit[] =
+        viewMode === "active"
+          ? [
+              ...reordered.map((h, i) => ({ ...h, order_index: i })),
+              ...other.map((h, i) => ({ ...h, order_index: reordered.length + i })),
+            ]
+          : [
+              ...other.map((h, i) => ({ ...h, order_index: i })),
+              ...reordered.map((h, i) => ({ ...h, order_index: other.length + i })),
+            ]
+      setHabits(withNewOrder)
+      for (const h of withNewOrder) {
+        await supabase.from("habits").update({ order_index: h.order_index ?? 0 }).eq("id", h.id)
+      }
+    },
+    [viewMode, activeHabits, archivedHabits]
+  )
 
   return (
     <>
@@ -356,55 +505,29 @@ export default function Habits() {
             </CardContent>
           </Card>
         ) : (
-          <ul className="space-y-2">
-            {displayHabits.map((habit) => (
-              <li key={habit.id}>
-                <Card className={cn(habit.archived && "opacity-75")}>
-                  <CardContent className="py-3 px-4 flex items-center justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate">{habit.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {TRACKING_LABELS[habit.tracking_type] ?? habit.tracking_type}
-                        {habit.target_value != null && ` · ${habit.target_value} ${habit.unit ?? ""}`}
-                      </p>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="shrink-0">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEditHabit(habit)}>
-                          <Pencil className="h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        {habit.archived ? (
-                          <DropdownMenuItem onClick={() => handleUnarchive(habit)}>
-                            <ArchiveRestore className="h-4 w-4" />
-                            Restore
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem onClick={() => handleArchive(habit)}>
-                            <Archive className="h-4 w-4" />
-                            Archive
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => setDeleteTarget(habit)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </CardContent>
-                </Card>
-              </li>
-            ))}
-          </ul>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={displayHabits.map((h) => h.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <ul className="space-y-2">
+                {displayHabits.map((habit) => (
+                  <SortableHabitRow
+                    key={habit.id}
+                    habit={habit}
+                    onEdit={openEditHabit}
+                    onArchive={handleArchive}
+                    onUnarchive={handleUnarchive}
+                    onDelete={setDeleteTarget}
+                  />
+                ))}
+              </ul>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
 

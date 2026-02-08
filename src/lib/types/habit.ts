@@ -9,6 +9,7 @@ export type Habit = {
   unit: string | null
   category_id?: string | null
   archived?: boolean
+  order_index?: number
   created_at: string
 }
 
@@ -19,6 +20,7 @@ export type HabitInsert = {
   target_value?: number | null
   unit?: string | null
   category_id?: string | null
+  order_index?: number
 }
 
 export type Category = {

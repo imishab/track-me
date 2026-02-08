@@ -50,6 +50,15 @@ export async function seedDefaultHabitsForUser(
   userId: string
 ): Promise<{ ok: boolean; error?: string }> {
   try {
+    const { data: maxRow } = await supabase
+      .from("habits")
+      .select("order_index")
+      .eq("user_id", userId)
+      .order("order_index", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    let nextOrderIndex = (maxRow?.order_index ?? -1) + 1
+
     for (const preset of DEFAULT_PRESETS) {
       let categoryId: string
 
@@ -88,12 +97,14 @@ export async function seedDefaultHabitsForUser(
           category_id: categoryId,
           title: habit.title,
           tracking_type: habit.tracking_type,
+          order_index: nextOrderIndex,
           ...(habit.target_value != null && { target_value: habit.target_value }),
           ...(habit.unit != null && habit.unit !== "" && { unit: habit.unit }),
         })
         if (habitError) {
           return { ok: false, error: habitError.message }
         }
+        nextOrderIndex++
         existingTitles.add(habit.title)
       }
     }

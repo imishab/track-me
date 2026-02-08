@@ -93,6 +93,12 @@ export default function Today() {
                 categoriesList = cRes.error ? [] : (cRes.data ?? [])
             }
         }
+        habitsList.sort(
+          (a, b) =>
+            (a.order_index ?? 999) - (b.order_index ?? 999) ||
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        )
+        categoriesList.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
         setHabits(habitsList.filter((h) => !h.archived))
         setCategories(categoriesList)
         setLoading(false)
