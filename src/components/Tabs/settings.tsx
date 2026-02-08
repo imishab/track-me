@@ -11,17 +11,32 @@ import { Label } from '../ui/label'
 import { Separator } from '../ui/separator'
 import { Card, CardContent } from '../ui/card'
 import { useTheme } from 'next-themes'
-import { Moon, Share2, LogOut, ChevronRight, User } from 'lucide-react'
+import { Moon, Share2, LogOut, ChevronRight, User, Download } from 'lucide-react'
 import { supabase } from '@/src/lib/supabase/client'
+import { seedDefaultHabitsForUser } from '@/src/lib/presets/default-habits'
 
 export default function Settings() {
     const { theme, setTheme } = useTheme()
     const router = useRouter()
     const [user, setUser] = useState<SupabaseUser | null>(null)
+    const [loadingDefaults, setLoadingDefaults] = useState(false)
 
     useEffect(() => {
         supabase.auth.getUser().then(({ data: { user: u } }) => setUser(u ?? null))
     }, [])
+
+    const handleLoadDefaults = async () => {
+        const { data: { user: u } } = await supabase.auth.getUser()
+        if (!u) return
+        setLoadingDefaults(true)
+        const { ok, error } = await seedDefaultHabitsForUser(supabase, u.id)
+        setLoadingDefaults(false)
+        if (ok) {
+            window.location.reload()
+        } else {
+            alert(error ?? 'Failed to load defaults')
+        }
+    }
 
     const handleShare = async () => {
         if (navigator.share) {
@@ -103,6 +118,21 @@ export default function Settings() {
                     <p className="text-sm font-medium text-muted-foreground px-1  tracking-wider">Actions</p>
 
                     <div className="space-y-3">
+                        <Button
+                            variant="outline"
+                            className="w-full justify-between h-auto py-4 px-4 text-base font-normal bg-card hover:bg-accent"
+                            onClick={handleLoadDefaults}
+                            disabled={loadingDefaults}
+                        >
+                            <span className="flex items-center gap-3">
+                                <div className="p-2 bg-secondary/50 rounded-full">
+                                    <Download className="w-5 h-5 text-foreground" />
+                                </div>
+                                <span>{loadingDefaults ? 'Loading…' : 'Load default categories & habits'}</span>
+                            </span>
+                            <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                        </Button>
+
                         <Button
                             variant="outline"
                             className="w-full justify-between h-auto py-4 px-4 text-base font-normal bg-card hover:bg-accent"

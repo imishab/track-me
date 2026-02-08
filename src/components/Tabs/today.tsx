@@ -22,6 +22,7 @@ import { ScrollArea } from '../ui/scroll-area'
 import { supabase } from '@/src/lib/supabase/client'
 import type { Habit, Category } from '@/src/lib/types/habit'
 import { getTodayKey, formatDayAndDate } from '@/src/lib/date-utils'
+import { seedDefaultHabitsForUser } from '@/src/lib/presets/default-habits'
 import Loader from '../loader'
 import Image from 'next/image'
 
@@ -75,17 +76,25 @@ export default function Today() {
             setLoading(false)
             return
         }
-        const [habitsRes, categoriesRes] = await Promise.all([
+        let [habitsRes, categoriesRes] = await Promise.all([
             supabase.from('habits').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
             supabase.from('categories').select('*').eq('user_id', user.id).order('created_at', { ascending: true }),
         ])
-        if (habitsRes.error) {
-            setHabits([])
-        } else {
-            const list = habitsRes.data ?? []
-            setHabits(list.filter((h) => !h.archived))
+        let habitsList = habitsRes.data ?? []
+        let categoriesList = categoriesRes.error ? [] : (categoriesRes.data ?? [])
+        if (habitsList.length === 0 && categoriesList.length === 0) {
+            const { ok } = await seedDefaultHabitsForUser(supabase, user.id)
+            if (ok) {
+                const [hRes, cRes] = await Promise.all([
+                    supabase.from('habits').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+                    supabase.from('categories').select('*').eq('user_id', user.id).order('created_at', { ascending: true }),
+                ])
+                habitsList = hRes.data ?? []
+                categoriesList = cRes.error ? [] : (cRes.data ?? [])
+            }
         }
-        setCategories(categoriesRes.error ? [] : (categoriesRes.data ?? []))
+        setHabits(habitsList.filter((h) => !h.archived))
+        setCategories(categoriesList)
         setLoading(false)
     }, [])
 
