@@ -20,3 +20,20 @@ export const initOneSignal = () => {
     });
   });
 }
+
+/** Request browser permission for web notifications. Returns the result. */
+export async function requestNotificationPermission(): Promise<NotificationPermission> {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return "denied"
+  }
+  if (Notification.permission === "granted") return "granted"
+  if (Notification.permission === "denied") return "denied"
+  const result = await Notification.requestPermission()
+  return result
+}
+
+/** Current notification permission status. */
+export function getNotificationPermission(): NotificationPermission | null {
+  if (typeof window === "undefined" || !("Notification" in window)) return null
+  return Notification.permission
+}

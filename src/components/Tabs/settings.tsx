@@ -11,19 +11,33 @@ import { Label } from '../ui/label'
 import { Separator } from '../ui/separator'
 import { Card, CardContent } from '../ui/card'
 import { useTheme } from 'next-themes'
-import { Moon, Share2, LogOut, ChevronRight, User, Download } from 'lucide-react'
+import { Moon, Share2, LogOut, ChevronRight, User, Download, Bell, Check, X } from 'lucide-react'
 import { supabase } from '@/src/lib/supabase/client'
 import { seedDefaultHabitsForUser } from '@/src/lib/presets/default-habits'
+import { requestNotificationPermission, getNotificationPermission } from '@/src/lib/onesignal'
 
 export default function Settings() {
     const { theme, setTheme } = useTheme()
     const router = useRouter()
     const [user, setUser] = useState<SupabaseUser | null>(null)
     const [loadingDefaults, setLoadingDefaults] = useState(false)
+    const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null)
+    const [requestingPermission, setRequestingPermission] = useState(false)
 
     useEffect(() => {
         supabase.auth.getUser().then(({ data: { user: u } }) => setUser(u ?? null))
     }, [])
+
+    useEffect(() => {
+        setNotificationPermission(getNotificationPermission())
+    }, [])
+
+    const handleAllowNotifications = async () => {
+        setRequestingPermission(true)
+        const result = await requestNotificationPermission()
+        setNotificationPermission(result)
+        setRequestingPermission(false)
+    }
 
     const handleLoadDefaults = async () => {
         const { data: { user: u } } = await supabase.auth.getUser()
@@ -108,6 +122,48 @@ export default function Settings() {
                                     checked={theme === 'dark'}
                                     onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
                                 />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border shadow-sm">
+                        <CardContent className="p-0">
+                            <div className="flex items-center justify-between p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-secondary/50 rounded-full">
+                                        <Bell className="w-5 h-5 text-foreground" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <Label className="text-base font-medium">Push notifications</Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            {notificationPermission === 'granted'
+                                                ? 'Notifications enabled'
+                                                : notificationPermission === 'denied'
+                                                    ? 'Notifications blocked'
+                                                    : 'Allow to get reminders and updates'}
+                                        </p>
+                                    </div>
+                                </div>
+                                {notificationPermission === 'granted' ? (
+                                    <div className="flex items-center gap-1.5 text-emerald-600">
+                                        <Check className="w-5 h-5" />
+                                        <span className="text-sm font-medium">Allowed</span>
+                                    </div>
+                                ) : notificationPermission === 'denied' ? (
+                                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                                        <X className="w-5 h-5" />
+                                        <span className="text-sm">Blocked</span>
+                                    </div>
+                                ) : (
+                                    <Button
+                                        size="sm"
+                                        className="bg-violet-500 text-white hover:bg-violet-600"
+                                        onClick={handleAllowNotifications}
+                                        disabled={requestingPermission}
+                                    >
+                                        {requestingPermission ? 'Requesting…' : 'Allow'}
+                                    </Button>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
