@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, ListTodo, BarChart3 } from 'lucide-react'
 import Header from '../layout/Header'
 import { Button } from '../ui/button'
 import {
@@ -25,6 +25,7 @@ import { getTodayKey, formatDayAndDate } from '@/src/lib/date-utils'
 import { seedDefaultHabitsForUser } from '@/src/lib/presets/default-habits'
 import Loader from '../loader'
 import Image from 'next/image'
+import { CategoryAnalytics } from './CategoryAnalytics'
 
 const STORAGE_KEY_PREFIX = 'track-me-daily'
 
@@ -62,6 +63,7 @@ export default function Today() {
     const [habits, setHabits] = useState<Habit[]>([])
     const [categories, setCategories] = useState<Category[]>([])
     const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
+    const [categoryViewTab, setCategoryViewTab] = useState<'todo' | 'analytics'>('todo')
     const [loading, setLoading] = useState(true)
     const [dailyCompletions, setDailyCompletions] = useState<Record<string, DayCompletion>>(loadDailyCompletionsFromStorage)
     const [dateKey] = useState(() => getTodayKey())
@@ -263,24 +265,62 @@ export default function Today() {
                             <>
                                 {selectedCategory && (
                                     <>
-                                    <div className="flex gap-2 items-center justify-left">
-                                        <CategoryRadialChart
-                                            completed={categoryCompletedCount}
-                                            total={filteredHabits.length}
-                                            label={selectedCategory.name} />
-                                           
+                                        <div className="flex gap-2 mb-4">
+                                            <Button
+                                                variant={categoryViewTab === 'todo' ? 'default' : 'outline'}
+                                                size="sm"
+                                                className={categoryViewTab === 'todo' ? 'bg-violet-500 hover:bg-violet-600 text-white' : ''}
+                                                onClick={() => setCategoryViewTab('todo')}
+                                            >
+                                                <ListTodo className="h-4 w-4 mr-1.5" />
+                                                Todo
+                                            </Button>
+                                            <Button
+                                                variant={categoryViewTab === 'analytics' ? 'default' : 'outline'}
+                                                size="sm"
+                                                className={categoryViewTab === 'analytics' ? 'bg-violet-500 hover:bg-violet-600 text-white' : ''}
+                                                onClick={() => setCategoryViewTab('analytics')}
+                                            >
+                                                <BarChart3 className="h-4 w-4 mr-1.5" />
+                                                Analytics
+                                            </Button>
                                         </div>
+                                        {categoryViewTab === 'todo' ? (
+                                            <>
+                                                {/* <div className="flex gap-2 items-center justify-left">
+                                                    <CategoryRadialChart
+                                                        completed={categoryCompletedCount}
+                                                        total={filteredHabits.length}
+                                                        label={selectedCategory.name}
+                                                    />
+                                                </div> */}
+                                                {filteredHabits.map((habit) => (
+                                                    <HabitCards
+                                                        key={habit.id}
+                                                        habit={habit}
+                                                        value={dailyCompletions[habit.id]?.value ?? 0}
+                                                        checked={dailyCompletions[habit.id]?.checked ?? false}
+                                                        onCompletionChange={(data) => handleCompletionChange(habit.id, data)}
+                                                    />
+                                                ))}
+                                            </>
+                                        ) : (
+                                            <CategoryAnalytics
+                                                categoryName={selectedCategory.name}
+                                                habits={filteredHabits}
+                                            />
+                                        )}
                                     </>
                                 )}
-                                {filteredHabits.map((habit) => (
-                                <HabitCards
-                                    key={habit.id}
-                                    habit={habit}
-                                    value={dailyCompletions[habit.id]?.value ?? 0}
-                                    checked={dailyCompletions[habit.id]?.checked ?? false}
-                                    onCompletionChange={(data) => handleCompletionChange(habit.id, data)}
-                                />
-                            ))}
+                                {!selectedCategory && filteredHabits.map((habit) => (
+                                    <HabitCards
+                                        key={habit.id}
+                                        habit={habit}
+                                        value={dailyCompletions[habit.id]?.value ?? 0}
+                                        checked={dailyCompletions[habit.id]?.checked ?? false}
+                                        onCompletionChange={(data) => handleCompletionChange(habit.id, data)}
+                                    />
+                                ))}
                             </>
                         )}
                     </>

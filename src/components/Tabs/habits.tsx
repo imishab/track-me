@@ -10,6 +10,9 @@ import {
   Trash2,
   FolderPlus,
   GripVertical,
+  ChevronLeft,
+  ListTodo,
+  BarChart3,
 } from "lucide-react"
 import {
   DndContext,
@@ -63,8 +66,11 @@ import { FieldDemo, type NewHabitData } from "../ui/FieldDemo"
 import { ScrollArea } from "../ui/scroll-area"
 import { supabase } from "@/src/lib/supabase/client"
 import type { Habit, Category } from "@/src/lib/types/habit"
+import { getTodayKey } from "@/src/lib/date-utils"
 import { cn } from "@/src/lib/utils"
 import Loader from "../loader"
+import HabitCards from "../Today/HabitCards"
+import { CategoryAnalytics } from "./CategoryAnalytics"
 
 const TRACKING_LABELS: Record<string, string> = {
   checkbox: "Checkbox",
@@ -72,7 +78,23 @@ const TRACKING_LABELS: Record<string, string> = {
   duration: "Duration",
 }
 
+const STORAGE_KEY_PREFIX = "track-me-daily"
+type DayCompletion = { value: number; checked: boolean }
+
+function loadDailyCompletionsFromStorage(): Record<string, DayCompletion> {
+  if (typeof window === "undefined") return {}
+  try {
+    const key = getTodayKey()
+    const stored = localStorage.getItem(`${STORAGE_KEY_PREFIX}-${key}`)
+    return stored ? JSON.parse(stored) : {}
+  } catch {
+    return {}
+  }
+}
+
 type ViewMode = "active" | "archived" | "category"
+type CategoryDetailTab = "todo" | "analytics"
+type CategoryDetail = { id: string; name: string; habits: Habit[] }
 
 function SortableHabitRow({
   habit,
@@ -169,6 +191,12 @@ export default function Habits() {
   const [deleteTarget, setDeleteTarget] = useState<Habit | null>(null)
   const [deleteCategoryTarget, setDeleteCategoryTarget] = useState<Category | null>(null)
   const [categoryName, setCategoryName] = useState("")
+  const [selectedCategoryDetail, setSelectedCategoryDetail] = useState<CategoryDetail | null>(null)
+  const [categoryDetailTab, setCategoryDetailTab] = useState<CategoryDetailTab>("todo")
+  const [categoryTodoCompletions, setCategoryTodoCompletions] = useState<Record<string, DayCompletion>>(
+    loadDailyCompletionsFromStorage
+  )
+  const [categoryTodoDateKey] = useState(() => getTodayKey())
 
   const fetchHabits = useCallback(async () => {
     const {
@@ -219,6 +247,60 @@ export default function Habits() {
     }
     load()
   }, [fetchHabits, fetchCategories])
+
+  useEffect(() => {
+    if (selectedCategoryDetail) {
+      setCategoryTodoCompletions(loadDailyCompletionsFromStorage())
+    }
+  }, [selectedCategoryDetail])
+
+  useEffect(() => {
+    if (!selectedCategoryDetail) return
+    try {
+      localStorage.setItem(
+        `${STORAGE_KEY_PREFIX}-${categoryTodoDateKey}`,
+        JSON.stringify(categoryTodoCompletions)
+      )
+    } catch {
+      // ignore
+    }
+  }, [categoryTodoDateKey, categoryTodoCompletions, selectedCategoryDetail])
+
+  useEffect(() => {
+    if (!selectedCategoryDetail || selectedCategoryDetail.habits.length === 0) return
+    const sync = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return
+      const isCompleted = (h: Habit, data: DayCompletion | undefined) => {
+        if (!data) return false
+        if (h.tracking_type === "checkbox") return data.checked
+        const target = h.target_value ?? 8
+        return data.value >= target
+      }
+      try {
+        for (const habit of selectedCategoryDetail.habits) {
+          const data = categoryTodoCompletions[habit.id]
+          const value = data?.value ?? 0
+          const completed = isCompleted(habit, data)
+          await supabase.from("habit_completions").upsert(
+            {
+              user_id: user.id,
+              habit_id: habit.id,
+              date: categoryTodoDateKey,
+              value,
+              completed,
+            },
+            { onConflict: "habit_id,date" }
+          )
+        }
+      } catch {
+        // table may not exist
+      }
+    }
+    sync()
+  }, [selectedCategoryDetail, categoryTodoCompletions, categoryTodoDateKey])
 
   const activeHabits = habits.filter((h) => !h.archived)
   const archivedHabits = habits.filter((h) => h.archived)
@@ -440,6 +522,75 @@ export default function Habits() {
 
         {loading ? (
           <Loader />
+        ) : selectedCategoryDetail ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                onClick={() => {
+                  setSelectedCategoryDetail(null)
+                  setCategoryDetailTab("todo")
+                }}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <p className="text-lg font-semibold truncate">{selectedCategoryDetail.name}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant={categoryDetailTab === "todo" ? "default" : "outline"}
+                size="sm"
+                className={categoryDetailTab === "todo" ? "bg-violet-500 hover:bg-violet-600" : ""}
+                onClick={() => setCategoryDetailTab("todo")}
+              >
+                <ListTodo className="h-4 w-4 mr-1.5" />
+                Todo
+              </Button>
+              <Button
+                variant={categoryDetailTab === "analytics" ? "default" : "outline"}
+                size="sm"
+                className={categoryDetailTab === "analytics" ? "bg-violet-500 hover:bg-violet-600" : ""}
+                onClick={() => setCategoryDetailTab("analytics")}
+              >
+                <BarChart3 className="h-4 w-4 mr-1.5" />
+                Analytics
+              </Button>
+            </div>
+            {categoryDetailTab === "todo" ? (
+              selectedCategoryDetail.habits.length === 0 ? (
+                <Card>
+                  <CardContent className="py-8 text-center text-muted-foreground text-sm">
+                    No habits in this category.
+                  </CardContent>
+                </Card>
+              ) : (
+                <ul className="space-y-2">
+                  {selectedCategoryDetail.habits.map((habit) => (
+                    <li key={habit.id}>
+                      <HabitCards
+                        habit={habit}
+                        value={categoryTodoCompletions[habit.id]?.value ?? 0}
+                        checked={categoryTodoCompletions[habit.id]?.checked ?? false}
+                        onCompletionChange={(data) =>
+                          setCategoryTodoCompletions((prev) => ({
+                            ...prev,
+                            [habit.id]: data,
+                          }))
+                        }
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )
+            ) : (
+              <CategoryAnalytics
+                categoryName={selectedCategoryDetail.name}
+                habits={selectedCategoryDetail.habits}
+              />
+            )}
+          </div>
         ) : viewMode === "category" ? (
           <div className="space-y-4">
             {uncategorizedCount > 0 && (
@@ -460,7 +611,16 @@ export default function Habits() {
               <ul className="space-y-2">
                 {habitsByCategory.map((cat) => (
                   <li key={cat.id}>
-                    <Card>
+                    <Card
+                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() =>
+                        setSelectedCategoryDetail({
+                          id: cat.id,
+                          name: cat.name,
+                          habits: cat.habits,
+                        })
+                      }
+                    >
                       <CardContent className="py-3 px-4 flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="font-medium truncate">{cat.name}</p>
@@ -468,12 +628,13 @@ export default function Habits() {
                             {cat.habitCount} habit{cat.habitCount !== 1 ? "s" : ""}
                           </p>
                         </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="shrink-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
+                        <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="shrink-0">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => openEditCategory(cat)}>
                               <Pencil className="h-4 w-4" />
@@ -488,7 +649,8 @@ export default function Habits() {
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
-                        </DropdownMenu>
+                          </DropdownMenu>
+                        </div>
                       </CardContent>
                     </Card>
                   </li>
