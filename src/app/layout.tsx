@@ -7,8 +7,6 @@ import { BottomNavWrapper } from "@/src/components/layout/BottomNavWrapper";
 import { SplashScreen } from "@/src/components/SplashScreen";
 import { TabProvider } from "@/src/contexts/tab-context";
 import { ThemeProvider } from "../components/ui/theme-provider";
-import { useEffect } from "react";
-import { initOneSignal } from "../lib/onesignal";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,9 +23,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  useEffect(() => {
-    initOneSignal();
-  }, []);
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -37,8 +32,9 @@ export default function RootLayout({
         <meta name="theme-color" content="#000000" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
       </head>
+      {/* PushAlert unified code - load before </head> */}
       <Script
-        src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js"
+        src="https://cdn.pushalert.co/unified_0279a5dc690001526219e4712e97c85d.js"
         strategy="afterInteractive"
       />
       <body
