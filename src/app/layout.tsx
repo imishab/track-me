@@ -36,6 +36,25 @@ export default function RootLayout({
       <Script
         src="https://cdn.pushalert.co/unified_0279a5dc690001526219e4712e97c85d.js"
         strategy="afterInteractive"
+        onLoad={() => {
+          if (typeof window !== "undefined") {
+            const w = window as unknown as { pushalertbyiw?: Array<unknown> }
+            w.pushalertbyiw = w.pushalertbyiw ?? []
+            w.pushalertbyiw.push([
+              "onSuccess",
+              (result: { subscriber_id?: string }) => {
+                if (result?.subscriber_id) {
+                  fetch("/api/push/subscribe", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ subscriber_id: result.subscriber_id }),
+                    credentials: "include",
+                  }).catch(() => {})
+                }
+              },
+            ])
+          }
+        }}
       />
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}

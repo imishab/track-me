@@ -13,6 +13,20 @@ export type SendPushOptions = {
 }
 
 export async function sendPushAlert(options: SendPushOptions): Promise<{ success: boolean; id?: number; error?: string }> {
+  return sendPushAlertToSubscribers(options)
+}
+
+/** Send to a specific subscriber (for personalized daily summary). */
+export async function sendPushAlertToSubscriber(
+  subscriberId: string,
+  options: SendPushOptions
+): Promise<{ success: boolean; id?: number; error?: string }> {
+  return sendPushAlertToSubscribers({ ...options, subscriber: subscriberId })
+}
+
+async function sendPushAlertToSubscribers(
+  options: SendPushOptions & { subscriber?: string }
+): Promise<{ success: boolean; id?: number; error?: string }> {
   const apiKey = process.env.PUSHALERT_API_KEY
   if (!apiKey) {
     return { success: false, error: "PUSHALERT_API_KEY not set" }
@@ -23,6 +37,7 @@ export async function sendPushAlert(options: SendPushOptions): Promise<{ success
     message: options.message.slice(0, 192),
     url: options.url,
     ...(options.icon && { icon: options.icon }),
+    ...(options.subscriber && { subscriber: options.subscriber }),
   })
 
   const res = await fetch(PUSHALERT_SEND_URL, {

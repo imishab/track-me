@@ -55,3 +55,17 @@ export function getTodayInPrayerTimezone(now: Date = new Date()): string {
   const d = parts.find((p) => p.type === "day")?.value ?? "01"
   return `${y}-${m}-${d}`
 }
+
+/** Whether it's 9:00 PM in the prayer timezone (for daily summary). */
+export function isDailySummaryTime(now: Date = new Date()): boolean {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PRAYER_TIMEZONE,
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  })
+  const parts = formatter.formatToParts(now)
+  const hour = parseInt(parts.find((p) => p.type === "hour")?.value ?? "0", 10)
+  const minute = parseInt(parts.find((p) => p.type === "minute")?.value ?? "0", 10)
+  return hour === 21 && minute === 0
+}

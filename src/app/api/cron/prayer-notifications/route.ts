@@ -3,16 +3,22 @@ import {
   getPrayerAtNow,
   getTodayInPrayerTimezone,
   PRAYER_TIMES,
+  isDailySummaryTime,
   type PrayerKey,
 } from "@/src/lib/prayer-times"
+import { runDailySummary } from "@/src/lib/daily-summary"
 import { sendPushAlert } from "@/src/lib/pushalert"
 import { createServerSupabaseClient } from "@/src/lib/supabase/server"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://track-me-two-sage.vercel.app"
 
+const VALID_PRAYER_KEYS: PrayerKey[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"]
+
 /**
- * Vercel Cron calls this every minute. If current time (in prayer timezone) matches
- * a prayer time, sends one push via PushAlert and records it in Supabase so we don't send twice.
+ * Vercel Cron calls this every minute.
+ * - At 9:00 PM (prayer timezone): send daily habit summary to each subscribed user.
+ * - At prayer times: send prayer reminder to all subscribers.
+ * Test: ?test=fajr for prayer; ?test=daily for daily summary.
  */
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization")
@@ -21,12 +27,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const prayerKey = getPrayerAtNow()
-  if (!prayerKey) {
-    return NextResponse.json({ ok: true, message: "No prayer at this time" })
-  }
+  const { searchParams } = new URL(request.url)
+  const testParam = searchParams.get("test")?.toLowerCase()
 
-  const date = getTodayInPrayerTimezone()
   let supabase
   try {
     supabase = createServerSupabaseClient()
@@ -37,15 +40,39 @@ export async function GET(request: Request) {
     )
   }
 
-  const { data: existing } = await supabase
-    .from("prayer_notification_sent")
-    .select("id")
-    .eq("date", date)
-    .eq("prayer_key", prayerKey)
-    .maybeSingle()
+  if (testParam === "daily") {
+    const { sent, errors } = await runDailySummary(supabase)
+    return NextResponse.json({ ok: true, test: true, dailySummary: true, sent, errors })
+  }
 
-  if (existing) {
-    return NextResponse.json({ ok: true, message: "Already sent today", prayer: prayerKey })
+  const isTestPrayer = testParam && VALID_PRAYER_KEYS.includes(testParam as PrayerKey)
+  const prayerKey: PrayerKey | null = isTestPrayer ? (testParam as PrayerKey) : getPrayerAtNow()
+
+  if (!prayerKey && !isDailySummaryTime()) {
+    return NextResponse.json({ ok: true, message: "No prayer or daily summary at this time" })
+  }
+
+  if (isDailySummaryTime() && !isTestPrayer) {
+    const { sent, errors } = await runDailySummary(supabase)
+    return NextResponse.json({ ok: true, dailySummary: true, sent, errors })
+  }
+
+  if (!prayerKey) {
+    return NextResponse.json({ ok: true, message: "No prayer at this time" })
+  }
+
+  const date = getTodayInPrayerTimezone()
+
+  if (!isTestPrayer) {
+    const { data: existing } = await supabase
+      .from("prayer_notification_sent")
+      .select("id")
+      .eq("date", date)
+      .eq("prayer_key", prayerKey)
+      .maybeSingle()
+    if (existing) {
+      return NextResponse.json({ ok: true, message: "Already sent today", prayer: prayerKey })
+    }
   }
 
   const config = PRAYER_TIMES[prayerKey as PrayerKey]
@@ -65,16 +92,17 @@ export async function GET(request: Request) {
     )
   }
 
-  const { error: insertError } = await supabase.from("prayer_notification_sent").insert({
-    date,
-    prayer_key: prayerKey,
-  })
-
-  if (insertError?.code === "23505") {
-    return NextResponse.json({ ok: true, message: "Already sent today (race)", prayer: prayerKey })
-  }
-  if (insertError) {
-    return NextResponse.json({ error: "Failed to record sent", detail: insertError.message }, { status: 500 })
+  if (!isTestPrayer) {
+    const { error: insertError } = await supabase.from("prayer_notification_sent").insert({
+      date,
+      prayer_key: prayerKey,
+    })
+    if (insertError?.code === "23505") {
+      return NextResponse.json({ ok: true, message: "Already sent today (race)", prayer: prayerKey })
+    }
+    if (insertError) {
+      return NextResponse.json({ error: "Failed to record sent", detail: insertError.message }, { status: 500 })
+    }
   }
 
   return NextResponse.json({
@@ -82,5 +110,6 @@ export async function GET(request: Request) {
     sent: true,
     prayer: prayerKey,
     notificationId: result.id,
+    ...(isTestPrayer && { test: true }),
   })
 }

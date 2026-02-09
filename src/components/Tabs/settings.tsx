@@ -32,11 +32,35 @@ export default function Settings() {
         setNotificationPermission(getNotificationPermission())
     }, [])
 
+    useEffect(() => {
+        if (notificationPermission === 'granted') syncPushSubscriberId()
+    }, [notificationPermission])
+
     const handleAllowNotifications = async () => {
         setRequestingPermission(true)
         const result = await requestNotificationPermission()
         setNotificationPermission(result)
         setRequestingPermission(false)
+        if (result === 'granted') syncPushSubscriberId()
+    }
+
+    /** Sync PushAlert subscriber ID to our API so we can send personalized daily summary. */
+    async function syncPushSubscriberId() {
+        const win = typeof window !== 'undefined' ? window : null
+        if (!win) return
+        for (let i = 0; i < 10; i++) {
+            await new Promise((r) => setTimeout(r, 500))
+            const subsId = (win as unknown as { PushAlertCo?: { subs_id?: string } }).PushAlertCo?.subs_id
+            if (subsId) {
+                await fetch('/api/push/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subscriber_id: subsId }),
+                    credentials: 'include',
+                })
+                return
+            }
+        }
     }
 
     const handleLoadDefaults = async () => {
