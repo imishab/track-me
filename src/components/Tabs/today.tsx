@@ -22,7 +22,6 @@ import { ScrollArea } from '../ui/scroll-area'
 import { supabase } from '@/src/lib/supabase/client'
 import type { Habit, Category } from '@/src/lib/types/habit'
 import { getTodayKey, formatDayAndDate } from '@/src/lib/date-utils'
-import { seedDefaultHabitsForUser } from '@/src/lib/presets/default-habits'
 import Loader from '../loader'
 import Image from 'next/image'
 import { CategoryAnalytics } from './CategoryAnalytics'
@@ -78,23 +77,12 @@ export default function Today() {
             setLoading(false)
             return
         }
-        let [habitsRes, categoriesRes] = await Promise.all([
+        const [habitsRes, categoriesRes] = await Promise.all([
             supabase.from('habits').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
             supabase.from('categories').select('*').eq('user_id', user.id).order('created_at', { ascending: true }),
         ])
-        let habitsList = habitsRes.data ?? []
-        let categoriesList = categoriesRes.error ? [] : (categoriesRes.data ?? [])
-        if (habitsList.length === 0 && categoriesList.length === 0) {
-            const { ok } = await seedDefaultHabitsForUser(supabase, user.id)
-            if (ok) {
-                const [hRes, cRes] = await Promise.all([
-                    supabase.from('habits').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-                    supabase.from('categories').select('*').eq('user_id', user.id).order('created_at', { ascending: true }),
-                ])
-                habitsList = hRes.data ?? []
-                categoriesList = cRes.error ? [] : (cRes.data ?? [])
-            }
-        }
+        const habitsList = habitsRes.data ?? []
+        const categoriesList = categoriesRes.error ? [] : (categoriesRes.data ?? [])
         habitsList.sort(
           (a, b) =>
             (a.order_index ?? 999) - (b.order_index ?? 999) ||
