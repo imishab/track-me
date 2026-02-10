@@ -29,6 +29,7 @@ import {
 } from "@/src/lib/date-utils"
 import { TrendingUp, Target, CheckCircle2, Flame } from "lucide-react"
 import Loader from "../loader"
+import Image from "next/image"
 
 type HabitCompletion = {
   id: string
@@ -211,7 +212,17 @@ export function CategoryAnalytics({ categoryName, habits }: CategoryAnalyticsPro
     return (
       <Card>
         <CardContent className="py-8 text-center text-muted-foreground text-sm">
-          No habits in this category.
+          <div className="text-muted-foreground text-center mt-16 text-sm flex flex-col items-center justify-center">
+            <Image
+              src="/images/icons/not.png"
+              alt="No habits"
+              width={150}
+              height={150}
+              className="mb-10 mt-10"
+            />
+            <p className="text-muted-foreground text-sm">No habits in this category.</p>
+          </div>
+
         </CardContent>
       </Card>
     )

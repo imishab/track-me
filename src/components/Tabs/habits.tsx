@@ -71,6 +71,7 @@ import { cn } from "@/src/lib/utils"
 import Loader from "../loader"
 import HabitCards from "../Today/HabitCards"
 import { CategoryAnalytics } from "./CategoryAnalytics"
+import Image from "next/image"
 
 const TRACKING_LABELS: Record<string, string> = {
   checkbox: "Checkbox",
@@ -561,8 +562,18 @@ export default function Habits() {
             {categoryDetailTab === "todo" ? (
               selectedCategoryDetail.habits.length === 0 ? (
                 <Card>
-                  <CardContent className="py-8 text-center text-muted-foreground text-sm">
-                    No habits in this category.
+                  <CardContent className=" text-center text-muted-foreground text-sm">
+                    <div className="text-muted-foreground text-center text-sm mt-5 flex flex-col items-center justify-center">
+            <Image
+              src="/images/icons/not.png"
+              alt="No habits"
+              width={150}
+              height={150}
+              className="mb-10"
+            />
+            <p className="text-muted-foreground text-sm">No habits yet. Tap + New Habit to add one.</p>
+          </div>
+
                   </CardContent>
                 </Card>
               ) : (
@@ -603,8 +614,17 @@ export default function Habits() {
             )}
             {habitsByCategory.length === 0 ? (
               <Card>
-                <CardContent className="py-8 text-center text-muted-foreground text-sm">
-                  No categories yet. Add one from the menu.
+                <CardContent className=" text-center text-muted-foreground text-sm">
+                  <div className="text-muted-foreground text-center mt-5 text-sm flex flex-col items-center justify-center">
+            <Image
+              src="/images/icons/not.png"
+              alt="No habits"
+              width={150}
+              height={150}
+              className="mb-10 "
+            />
+            <p className="text-muted-foreground text-sm">No categories yet. Add one from the menu.</p>
+          </div>
                 </CardContent>
               </Card>
             ) : (
@@ -660,10 +680,19 @@ export default function Habits() {
           </div>
         ) : displayHabits.length === 0 ? (
           <Card>
-            <CardContent className="py-8 text-center text-muted-foreground text-sm">
-              {viewMode === "archived"
+            <CardContent className="text-center text-muted-foreground text-sm">
+            <div className="text-muted-foreground text-center text-sm mt-5 flex flex-col items-center justify-center">
+            <Image
+              src="/images/icons/not.png"
+              alt="No habits"
+              width={150}
+              height={150}
+              className="mb-10"
+            />
+            <p className="text-muted-foreground text-sm">{viewMode === "archived"
                 ? "No archived habits."
-                : "No habits yet. Add one from the menu."}
+                : "No habits yet. Add one from the menu."}</p>
+          </div>
             </CardContent>
           </Card>
         ) : (

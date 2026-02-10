@@ -221,7 +221,7 @@ export default function Today() {
                             alt="No habits"
                             width={150}
                             height={150}
-                            className="mb-5"
+                            className="mb-10 mt-10"
                         />
                         <p className="text-muted-foreground text-sm">No habits yet. Tap + New Habit to add one.</p>
                     </div>
